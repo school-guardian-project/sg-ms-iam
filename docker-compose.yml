@@ -1,0 +1,11 @@
+services:
+  ms-iam:
+    image: ms-iam.api
+    container_name: ms-iam
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    env_file:
+      - .env
