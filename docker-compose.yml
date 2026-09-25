@@ -6,6 +6,12 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8081:8080"
+      - "8080"
     env_file:
       - .env
+    networks:
+      - sg-services-network
+
+networks:
+  sg-services-network:
+    external: true
