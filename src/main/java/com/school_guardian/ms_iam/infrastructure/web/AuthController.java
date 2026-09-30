@@ -44,18 +44,24 @@ public class AuthController {
 
         return ResponseEntity.ok(new LoginResponseDto(
             result.accessToken(), result.accessTokenExpiresAt(),
-            null, null,
+            result.refreshToken(), result.refreshTokenExpiresAt(),
             result.profileId(), result.personId(), result.email(),
             result.roleId(), result.campusId()
         ));
     }
 
     @PostMapping("/refresh")
-    @Operation(summary = "Refresh access token", description = "Rotates both access and refresh tokens using HttpOnly cookie")
+    @Operation(summary = "Refresh access token", description = "Rotates both access and refresh tokens. Web sends the HttpOnly cookie, mobile sends Authorization: Bearer <refresh-token>")
     public ResponseEntity<RefreshResponseDto> refresh(
-        @CookieValue("refresh_token") String refreshToken,
+        @RequestHeader(value = "Authorization", required = false) String authHeader,
+        @CookieValue(value = "refresh_token", required = false) String cookieToken,
         HttpServletResponse response
     ) {
+        String refreshToken = cookieToken != null ? cookieToken : extractToken(authHeader);
+        if (refreshToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+
         var refresh = new RefreshTokenUseCase.Refresh(refreshToken);
         var result = refreshTokenUseCase.execute(refresh);
 
