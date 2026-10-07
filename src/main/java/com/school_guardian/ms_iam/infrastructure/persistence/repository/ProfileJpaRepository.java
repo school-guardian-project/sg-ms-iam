@@ -2,7 +2,9 @@ package com.school_guardian.ms_iam.infrastructure.persistence.repository;
 
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.ProfileEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,4 +20,8 @@ public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID>
         WHERE per.Email = :email
         """, nativeQuery = true)
     List<Object[]> findAuthDataByEmail(String email);
+
+    @Modifying
+    @Query("UPDATE ProfileEntity p SET p.passwordHash = :passwordHash WHERE p.id = :id")
+    int updatePasswordHash(@Param("id") UUID id, @Param("passwordHash") String passwordHash);
 }

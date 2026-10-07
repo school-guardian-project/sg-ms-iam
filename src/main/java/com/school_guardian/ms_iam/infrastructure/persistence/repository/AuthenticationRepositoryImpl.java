@@ -4,6 +4,7 @@ import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.ProfileEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -29,6 +30,12 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
     public Optional<AuthenticationData> findByProfileId(UUID profileId) {
         return profileJpaRepository.findById(profileId)
             .map(this::toAuthenticationData);
+    }
+
+    @Override
+    @Transactional
+    public void updatePassword(UUID profileId, String newPasswordHash) {
+        profileJpaRepository.updatePasswordHash(profileId, newPasswordHash);
     }
 
     private AuthenticationData toAuthenticationData(ProfileEntity entity) {
