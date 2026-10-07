@@ -10,10 +10,9 @@ import java.util.UUID;
 
 public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID> {
     boolean existsByPersonId(UUID personId);
-    Optional<ProfileEntity> findByPersonId(UUID personId);
 
     @Query(value = """
-        SELECT p.Id, p.PersonId, p.PasswordHash, p.RoleId, p.Status, per.Email
+        SELECT p.Id, p.PersonId, p.PasswordHash, p.RoleId, p.Status, per.Email, p.CampuseId
         FROM Iam.Profile p
         INNER JOIN UserManagement.Person per ON p.PersonId = per.Id
         WHERE per.Email = :email
