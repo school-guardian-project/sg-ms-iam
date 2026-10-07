@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -26,12 +27,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final TokenProvider tokenProvider;
     private final TokenDenyList tokenDenyList;
 
+    /**
+     * Rutas donde el token viaja en el header pero NO es un access token.
+     *
+     * <p>El movil no usa la cookie HttpOnly de la web: manda el refresh token en
+     * {@code Authorization: Bearer}. Si este filtro lo interpretara como access
+     * token, parseAccessToken falla y la peticion muere con 401 antes de llegar
+     * al controlador. Por eso /refresh queda fuera del filtro y es el controlador
+     * quien valida el refresh token.
+     */
+    private static final Set<String> REFRESH_ROUTES = Set.of("/api/v1/auth/refresh");
+
     @Override
     protected void doFilterInternal(
         @NonNull HttpServletRequest request,
         @NonNull HttpServletResponse response,
         @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
+
+        if (REFRESH_ROUTES.contains(request.getRequestURI())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
