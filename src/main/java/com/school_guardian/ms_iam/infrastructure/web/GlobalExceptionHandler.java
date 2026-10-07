@@ -3,8 +3,6 @@ package com.school_guardian.ms_iam.infrastructure.web;
 import com.school_guardian.ms_iam.application.dto.ErrorResponseDto;
 import com.school_guardian.ms_iam.application.usecase.LoginService;
 import com.school_guardian.ms_iam.application.usecase.RefreshTokenService;
-import com.school_guardian.ms_iam.domain.exception.EmailAlreadyInUseException;
-import com.school_guardian.ms_iam.domain.exception.ProfileNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -37,21 +35,6 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<ErrorResponseDto> handleAccountInactive(Exception ex, HttpServletRequest request) {
         return response(HttpStatus.FORBIDDEN, ex.getMessage(), request, null);
-    }
-
-    @ExceptionHandler(ProfileNotFoundException.class)
-    public ResponseEntity<ErrorResponseDto> handleProfileNotFound(HttpServletRequest request) {
-        return response(HttpStatus.NOT_FOUND, "Profile not found", request, null);
-    }
-
-    @ExceptionHandler(EmailAlreadyInUseException.class)
-    public ResponseEntity<ErrorResponseDto> handleEmailInUse(HttpServletRequest request) {
-        return response(HttpStatus.CONFLICT, "Email already in use", request, null);
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponseDto> handleBadInput(IllegalArgumentException ex, HttpServletRequest request) {
-        return response(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(MissingRequestCookieException.class)

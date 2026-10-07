@@ -9,10 +9,4 @@ public class AuthenticationData {
     public String passwordHash;
     public Byte roleId;
     public String status;
-
-    /**
-     * Sede del perfil, leida de {@code Iam.Profile.CampuseId}. Va null para
-     * admins: un admin se relaciona con un colegio, no con una sede.
-     */
-    public UUID campusId;
 }

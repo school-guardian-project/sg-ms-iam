@@ -33,7 +33,7 @@ public class JwtTokenProvider implements TokenProvider {
     }
 
     @Override
-    public String generatedAccessToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId, Map<String, Object> extractClaims) {
+    public String generatedAccessToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, Map<String, Object> extractClaims) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(accessTokenExpirationMinutes * 60);
         String jti = (String) extractClaims.getOrDefault("jti", UUID.randomUUID().toString());
@@ -49,14 +49,12 @@ public class JwtTokenProvider implements TokenProvider {
 
         if (email != null) builder.claim("email", email);
         if (campusId != null) builder.claim("campusId", campusId.toString());
-        // Claims opcionales: solo se emiten si existen. schoolId solo aplica a admins.
-        if (schoolId != null) builder.claim("schoolId", schoolId.toString());
 
         return builder.signWith(secretKey).compact();
     }
 
     @Override
-    public String generatedRefreshToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId) {
+    public String generatedRefreshToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(refreshTokenExpirationDays * 24 * 60 * 60);
 
@@ -70,7 +68,6 @@ public class JwtTokenProvider implements TokenProvider {
 
         if (email != null) builder.claim("email", email);
         if (campusId != null) builder.claim("campusId", campusId.toString());
-        if (schoolId != null) builder.claim("schoolId", schoolId.toString());
 
         return builder.signWith(secretKey).compact();
     }
@@ -87,7 +84,6 @@ public class JwtTokenProvider implements TokenProvider {
             claims.get("email", String.class),
             claims.get("roleId", Byte.class),
             claims.get("campusId") != null ? UUID.fromString(claims.get("campusId", String.class)) : null,
-            claims.get("schoolId") != null ? UUID.fromString(claims.get("schoolId", String.class)) : null,
             claims.get("jti", String.class),
             claims.getIssuedAt().toInstant(),
             claims.getExpiration().toInstant(),
@@ -107,7 +103,6 @@ public class JwtTokenProvider implements TokenProvider {
             claims.get("email", String.class),
             claims.get("roleId", Byte.class),
             claims.get("campusId") != null ? UUID.fromString(claims.get("campusId", String.class)) : null,
-            claims.get("schoolId") != null ? UUID.fromString(claims.get("schoolId", String.class)) : null,
             claims.getIssuedAt().toInstant(),
             claims.getExpiration().toInstant()
         );
@@ -134,11 +129,7 @@ public class JwtTokenProvider implements TokenProvider {
     @Override
     public boolean isTokenExpired(String token) {
         try {
-            // Se lee el claim exp del token tal cual, sin asumir que sea de tipo
-            // access: este metodo tambien se usa sobre refresh tokens, y parsear
-            // con parseAccessToken lanzaria "Not an access token" y haria que todo
-            // refresh pareciera expirado.
-            return parse(token).getExpiration().toInstant().isBefore(Instant.now());
+            return extractExpiration(token).isBefore(Instant.now());
         } catch (JwtException e) {
             return true;
         }

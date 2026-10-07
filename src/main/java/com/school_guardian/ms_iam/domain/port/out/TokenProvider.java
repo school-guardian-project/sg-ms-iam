@@ -5,14 +5,14 @@ import java.util.Map;
 import java.util.UUID;
 
 public interface TokenProvider {
-    String generatedAccessToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId, Map<String, Object> extractClaims);
-    String generatedRefreshToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId);
+    String generatedAccessToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, Map<String, Object> extractClaims);
+    String generatedRefreshToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId);
     TokenClaims parseAccessToken(String token);
     RefreshClaims parseRefreshToken(String token);
     UUID extractJti(String token);
     Instant extractExpiration(String token);
     boolean isTokenExpired(String token);
 
-    record TokenClaims(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId, String jti, Instant issuedAt, Instant expiresAt, Map<String, Object> extraClaims) {}
-    record RefreshClaims(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId, Instant issuedAt, Instant expiresAt) {}
+    record TokenClaims(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, String jti, Instant issuedAt, Instant expiresAt, Map<String, Object> extraClaims) {}
+    record RefreshClaims(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, Instant issuedAt, Instant expiresAt) {}
 }

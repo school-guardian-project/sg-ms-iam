@@ -5,8 +5,3 @@ spring.datasource.password=${MSSQL_SA_PASSWORD}
 spring.jpa.properties.hibernate.default_schema=Iam
 
 spring.jpa.hibernate.naming.physical-strategy=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-# Service-to-service key for /api/profiles/** (empty = endpoints reject everything)
-app.internal.api-key=${INTERNAL_API_KEY:}
-
-# National phone format in UserManagement.Person.Phone has no country code; used to strip it from E.164 lookups
-app.phone.default-country-code=${PHONE_DEFAULT_COUNTRY_CODE:57}
