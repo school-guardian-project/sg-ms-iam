@@ -6,7 +6,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AuthenticationRepository {
+    Optional<AuthenticationData> findByPersonId(UUID personId);
     Optional<AuthenticationData> findByEmail(String email);
-    Optional<AuthenticationData> findByProfileId(UUID profileId);
-    void updatePassword(UUID profileId, String newPasswordHash);
 }

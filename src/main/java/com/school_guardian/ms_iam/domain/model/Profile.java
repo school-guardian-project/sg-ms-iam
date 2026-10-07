@@ -18,7 +18,4 @@ public class Profile {
     private String passwordHash;
     private Role role;
     private Status status;
-
-    /** Sede del perfil. Null para admins, que se relacionan con un colegio. */
-    private UUID campusId;
 }
