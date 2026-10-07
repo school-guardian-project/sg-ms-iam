@@ -1,8 +1,12 @@
 package com.school_guardian.ms_iam.infrastructure.web;
 
+import com.school_guardian.ms_iam.application.dto.ChangePasswordRequestDto;
 import com.school_guardian.ms_iam.application.dto.LoginRequestDto;
 import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
 import com.school_guardian.ms_iam.application.dto.RefreshResponseDto;
+import com.school_guardian.ms_iam.application.dto.UserProfileDto;
+import com.school_guardian.ms_iam.domain.port.in.ChangePasswordUseCase;
+import com.school_guardian.ms_iam.domain.port.in.GetProfileUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LogoutUseCase;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
@@ -17,13 +21,15 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "Authentication", description = "Login, token refresh, logout")
+@Tag(name = "Authentication", description = "Login, token refresh, logout, profile")
 @RequiredArgsConstructor
 public class AuthController {
 
     private final LoginUseCase loginUseCase;
     private final RefreshTokenUseCase refreshTokenUseCase;
     private final LogoutUseCase logoutUseCase;
+    private final GetProfileUseCase getProfileUseCase;
+    private final ChangePasswordUseCase changePasswordUseCase;
 
     @PostMapping("/login")
     @Operation(summary = "User login", description = "Authenticates user by email and returns access token in body, refresh token in HttpOnly cookie")
@@ -95,6 +101,35 @@ public class AuthController {
         clearCookie.setMaxAge(0);
         response.addCookie(clearCookie);
 
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/profile")
+    @Operation(summary = "Get current user profile", description = "Returns profile data for the authenticated user from JWT claims")
+    public ResponseEntity<UserProfileDto> getProfile(
+        @RequestHeader(value = "Authorization") String authHeader
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        UserProfileDto profile = getProfileUseCase.execute(accessToken);
+        return ResponseEntity.ok(profile);
+    }
+
+    @PostMapping("/change-password")
+    @Operation(summary = "Change user password", description = "Changes the password for the authenticated user")
+    public ResponseEntity<Void> changePassword(
+        @RequestHeader(value = "Authorization") String authHeader,
+        @Valid @RequestBody ChangePasswordRequestDto request
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        changePasswordUseCase.execute(accessToken, request);
         return ResponseEntity.noContent().build();
     }
 
