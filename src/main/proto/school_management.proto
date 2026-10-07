@@ -1,0 +1,93 @@
+syntax = "proto3";
+option csharp_namespace = "ms_school_management.Api.Infrastructure.Grpc";
+option java_package = "com.school_guardian.ms_iam.infrastructure.grpc.proto";
+option java_multiple_files = true;
+option java_outer_classname = "SchoolManagementProto";
+package schoolmanagement;
+
+// Servicio que resuelve datos de colegio que otros servicios necesitan al
+// registrar personas. Es la razon de existir de gRPC en este microservicio:
+// el dato vive en el esquema School y lo consume ms-iam (login -> claim
+// schoolId) y ms-user-management (alta de admin -> colegio, alta de
+// persona -> validacion de la sede).
+service SchoolManagementService {
+  // Colegio que administra un perfil. Un admin pertenece a exactamente un
+  // colegio; `found = false` significa que la relacion aun no existe.
+  rpc GetAdminSchool (GetAdminSchoolRequest) returns (GetAdminSchoolResponse);
+
+  // Sede por id. `found = false` cuando el id no existe o esta inactiva, para
+  // que el consumidor pueda responder 404 en vez de inventarse un 400.
+  rpc GetCampus (GetCampusRequest) returns (GetCampusResponse);
+
+  // Sede por colegio y nombre, usado al crear un colegio con sus sedes para
+  // devolver el campusId recien creado al cliente que hizo el alta.
+  rpc GetCampusByName (GetCampusByNameRequest) returns (GetCampusResponse);
+
+  // Registra la relacion perfil -> colegio. La llama ms-iam despues de crear el
+  // perfil del admin, porque el Profile.Id lo genera ms-iam y ms-school-management
+  // no lo conoce de antemano. Idempotente: repetirla actualiza el colegio en vez
+  // de fallar, para que un reintento del consumidor de Kafka no rompa nada.
+  rpc LinkAdminSchool (LinkAdminSchoolRequest) returns (LinkAdminSchoolResponse);
+
+  // Colegio por id. Lo usa ms-user-management para validar que el schoolId que
+  // envía el frontend exista de verdad antes de dar de alta al admin.
+  rpc GetSchool (GetSchoolRequest) returns (GetSchoolResponse);
+}
+
+message GetAdminSchoolRequest {
+  // Profile.Id (Iam.Profile), no Person.Id.
+  string profile_id = 1;
+}
+
+message GetAdminSchoolResponse {
+  bool found = 1;
+  string id = 2;
+  string name = 3;
+  string city_id = 4;
+  string status = 5;
+}
+
+message GetCampusRequest {
+  string id = 1;
+}
+
+message GetCampusByNameRequest {
+  string school_id = 1;
+  string name = 2;
+}
+
+message GetCampusResponse {
+  bool found = 1;
+  string id = 2;
+  string school_id = 3;
+  string name = 4;
+  string address = 5;
+  string status = 6;
+}
+
+message LinkAdminSchoolRequest {
+  // Iam.Profile.Id del admin recien creado.
+  string profile_id = 1;
+  // School.School.Id del colegio que administrara.
+  string school_id = 2;
+}
+
+message LinkAdminSchoolResponse {
+  bool linked = 1;
+  // Id de la fila School.SchoolAdmin creada o actualizada.
+  string link_id = 2;
+  // Nombre del colegio, para que el consumidor lo registre sin otra ida.
+  string school_name = 3;
+}
+
+message GetSchoolRequest {
+  string id = 1;
+}
+
+message GetSchoolResponse {
+  bool found = 1;
+  string id = 2;
+  string name = 3;
+  string city_id = 4;
+  string status = 5;
+}

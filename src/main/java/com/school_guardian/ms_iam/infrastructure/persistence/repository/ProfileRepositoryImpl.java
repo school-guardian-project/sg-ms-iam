@@ -31,6 +31,7 @@ public class ProfileRepositoryImpl implements ProfileRepository {
         entity.setPasswordHash(profile.getPasswordHash());
         entity.setRoleId(profile.getRole().getId());
         entity.setStatus(profile.getStatus().name());
+        entity.setCampusId(profile.getCampusId());
 
         ProfileEntity saved = profileJpaRepository.save(entity);
         profile.setId(saved.getId());
