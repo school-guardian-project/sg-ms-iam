@@ -53,6 +53,7 @@ public class SecurityConfig {
             // responde 403. El contrato dice 401 (no autenticado) para que el cliente
             // distinga "renew / ir a login" de "autenticado pero sin permiso" (403).
             .exceptionHandling(ex -> ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+            .addFilterBefore(internalApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
