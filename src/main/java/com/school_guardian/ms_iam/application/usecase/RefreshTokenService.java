@@ -30,7 +30,7 @@ public class RefreshTokenService implements RefreshTokenUseCase {
     public RefreshTokenUseCase.RefreshResponse execute(RefreshTokenUseCase.Refresh refresh) {
         var refreshClaims = tokenProvider.parseRefreshToken(refresh.refreshToken());
 
-        if (tokenProvider.isTokenExpired(refresh.refreshToken())) {
+        if (refreshClaims.expiresAt().isBefore(Instant.now())) {
             throw new InvalidRefreshTokenException("Refresh token expired");
         }
 
