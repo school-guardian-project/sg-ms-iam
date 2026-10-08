@@ -1,6 +1,7 @@
 package com.school_guardian.ms_iam.infrastructure.persistence.repository;
 
 import com.school_guardian.ms_iam.application.dto.AuthenticationData;
+import com.school_guardian.ms_iam.application.dto.ProfileView;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.ProfileEntity;
 import org.springframework.stereotype.Component;
@@ -36,6 +37,31 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
             .stream()
             .findFirst()
             .map(this::toAuthenticationDataFromJoin);
+    }
+
+    @Override
+    public Optional<ProfileView> findProfileViewById(UUID profileId) {
+        return profileJpaRepository.findProfileViewById(profileId)
+            .stream()
+            .findFirst()
+            .map(this::toProfileView);
+    }
+
+    private ProfileView toProfileView(Object[] row) {
+        ProfileView view = new ProfileView();
+        view.profileId = toUuid(row[0]);
+        view.personId = toUuid(row[1]);
+        view.email = (String) row[2];
+        view.roleId = row[3] != null ? ((Number) row[3]).byteValue() : null;
+        view.roleName = (String) row[4];
+        view.campusId = row[5] != null ? toUuid(row[5]) : null;
+        view.campusName = (String) row[6];
+        view.schoolId = row[7] != null ? toUuid(row[7]) : null;
+        view.schoolName = (String) row[8];
+        view.name = (String) row[9];
+        view.lastName = (String) row[10];
+        view.status = (String) row[11];
+        return view;
     }
 
     private AuthenticationData toAuthenticationData(ProfileEntity entity) {
