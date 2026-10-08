@@ -2,13 +2,16 @@ services:
   ms-iam:
     image: ms-iam.api
     container_name: ms-iam
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8081:8080"
+      - "8080"
     env_file:
       - .env
+    environment:
+      APP_INTERNAL_API_KEY: "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY to match ms-forgot-information}"
     networks:
       - sg-services-network
 
