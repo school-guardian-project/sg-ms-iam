@@ -9,4 +9,6 @@ public class AuthenticationData {
     public String passwordHash;
     public Byte roleId;
     public String status;
+    public UUID campusId;
+    public UUID schoolId;
 }

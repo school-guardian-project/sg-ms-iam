@@ -13,10 +13,24 @@ public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID>
     Optional<ProfileEntity> findByPersonId(UUID personId);
 
     @Query(value = """
-        SELECT p.Id, p.PersonId, p.PasswordHash, p.RoleId, p.Status, per.Email
+        SELECT p.Id, p.PersonId, p.PasswordHash, p.RoleId, p.Status, per.Email,
+               p.CampuseId, COALESCE(sa.SchoolId, sc.SchoolId) AS SchoolId
         FROM Iam.Profile p
         INNER JOIN UserManagement.Person per ON p.PersonId = per.Id
+        LEFT JOIN School.SchoolAdmin sa ON sa.ProfileId = p.Id AND sa.Status = 'Active'
+        LEFT JOIN School.SchoolCampus sc ON sc.Id = p.CampuseId
         WHERE per.Email = :email
         """, nativeQuery = true)
     List<Object[]> findAuthDataByEmail(String email);
+
+    @Query(value = """
+        SELECT p.Id, p.PersonId, p.PasswordHash, p.RoleId, p.Status, per.Email,
+               p.CampuseId, COALESCE(sa.SchoolId, sc.SchoolId) AS SchoolId
+        FROM Iam.Profile p
+        INNER JOIN UserManagement.Person per ON p.PersonId = per.Id
+        LEFT JOIN School.SchoolAdmin sa ON sa.ProfileId = p.Id AND sa.Status = 'Active'
+        LEFT JOIN School.SchoolCampus sc ON sc.Id = p.CampuseId
+        WHERE p.Id = :profileId
+        """, nativeQuery = true)
+    List<Object[]> findAuthDataByProfileId(UUID profileId);
 }

@@ -30,6 +30,14 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
             .map(this::toAuthenticationDataFromJoin);
     }
 
+    @Override
+    public Optional<AuthenticationData> findByProfileId(UUID profileId) {
+        return profileJpaRepository.findAuthDataByProfileId(profileId)
+            .stream()
+            .findFirst()
+            .map(this::toAuthenticationDataFromJoin);
+    }
+
     private AuthenticationData toAuthenticationData(ProfileEntity entity) {
         AuthenticationData data = new AuthenticationData();
         data.profileId = entity.getId();
@@ -48,6 +56,8 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
         data.roleId = row[3] != null ? ((Number) row[3]).byteValue() : null;
         data.status = (String) row[4];
         data.email = (String) row[5];
+        data.campusId = row[6] != null ? toUuid(row[6]) : null;
+        data.schoolId = row[7] != null ? toUuid(row[7]) : null;
         return data;
     }
 

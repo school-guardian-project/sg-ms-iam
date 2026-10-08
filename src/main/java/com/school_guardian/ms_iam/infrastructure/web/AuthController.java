@@ -46,7 +46,7 @@ public class AuthController {
             result.accessToken(), result.accessTokenExpiresAt(),
             result.refreshToken(), result.refreshTokenExpiresAt(),
             result.profileId(), result.personId(), result.email(),
-            result.roleId(), result.campusId()
+            result.roleId(), result.campusId(), result.schoolId()
         ));
     }
 

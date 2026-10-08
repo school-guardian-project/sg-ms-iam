@@ -34,7 +34,7 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             throw new InvalidRefreshTokenException("Refresh token expired");
         }
 
-        var authData = authenticationRepository.findByPersonId(refreshClaims.profileId())
+        var authData = authenticationRepository.findByProfileId(refreshClaims.profileId())
             .orElseThrow(() -> new InvalidRefreshTokenException("Profile not found"));
 
         Profile profile = toProfile(authData);
@@ -45,14 +45,14 @@ public class RefreshTokenService implements RefreshTokenUseCase {
 
         String newAccessJti = UUID.randomUUID().toString();
         String newAccessToken = tokenProvider.generatedAccessToken(
-            profile.getId(), profile.getPersonId(), null,
-            profile.getRole().getId(), null,
+            profile.getId(), profile.getPersonId(), authData.email,
+            profile.getRole().getId(), authData.campusId, authData.schoolId,
             Map.of("jti", newAccessJti)
         );
 
         String newRefreshToken = tokenProvider.generatedRefreshToken(
-            profile.getId(), profile.getPersonId(), null,
-            profile.getRole().getId(), null
+            profile.getId(), profile.getPersonId(), authData.email,
+            profile.getRole().getId(), authData.campusId, authData.schoolId
         );
 
         Instant accessExpiresAt = Instant.now().plusSeconds(ACCESS_TOKEN_MINUTES * 60);
