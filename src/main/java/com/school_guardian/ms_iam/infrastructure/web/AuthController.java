@@ -2,7 +2,9 @@ package com.school_guardian.ms_iam.infrastructure.web;
 
 import com.school_guardian.ms_iam.application.dto.LoginRequestDto;
 import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
+import com.school_guardian.ms_iam.application.dto.ProfileResponseDto;
 import com.school_guardian.ms_iam.application.dto.RefreshResponseDto;
+import com.school_guardian.ms_iam.domain.port.in.GetProfileUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LogoutUseCase;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
@@ -24,6 +26,24 @@ public class AuthController {
     private final LoginUseCase loginUseCase;
     private final RefreshTokenUseCase refreshTokenUseCase;
     private final LogoutUseCase logoutUseCase;
+    private final GetProfileUseCase getProfileUseCase;
+
+    @GetMapping("/profile")
+    @Operation(summary = "Current user profile", description = "Returns the profile of the authenticated user, including role and tenant (campus/school)")
+    public ResponseEntity<ProfileResponseDto> profile(
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            var result = getProfileUseCase.execute(new GetProfileUseCase.GetProfile(accessToken));
+            return ResponseEntity.ok(result);
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+    }
 
     @PostMapping("/login")
     @Operation(summary = "User login", description = "Authenticates user by email and returns access token in body, refresh token in HttpOnly cookie")
@@ -46,7 +66,7 @@ public class AuthController {
             result.accessToken(), result.accessTokenExpiresAt(),
             result.refreshToken(), result.refreshTokenExpiresAt(),
             result.profileId(), result.personId(), result.email(),
-            result.roleId(), result.campusId()
+            result.roleId(), result.campusId(), result.schoolId()
         ));
     }
 

@@ -47,13 +47,13 @@ public class LoginService implements LoginUseCase {
         String accessTokenJti = UUID.randomUUID().toString();
         String accessToken = tokenProvider.generatedAccessToken(
             profile.getId(), profile.getPersonId(), authData.email,
-            profile.getRole().getId(), null,
+            profile.getRole().getId(), authData.campusId, authData.schoolId,
             Map.of("jti", accessTokenJti)
         );
 
         String refreshToken = tokenProvider.generatedRefreshToken(
             profile.getId(), profile.getPersonId(), authData.email,
-            profile.getRole().getId(), null
+            profile.getRole().getId(), authData.campusId, authData.schoolId
         );
 
         Instant accessExpiresAt = Instant.now().plusSeconds(ACCESS_TOKEN_MINUTES * 60);
@@ -63,7 +63,7 @@ public class LoginService implements LoginUseCase {
             accessToken, accessExpiresAt,
             refreshToken, refreshExpiresAt,
             profile.getId(), profile.getPersonId(), authData.email,
-            profile.getRole().getId(), null
+            profile.getRole().getId(), authData.campusId, authData.schoolId
         );
     }
 
