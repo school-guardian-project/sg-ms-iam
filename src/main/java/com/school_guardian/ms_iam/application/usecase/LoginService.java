@@ -31,18 +31,26 @@ public class LoginService implements LoginUseCase {
 
     @Override
     public LoginResponseDto execute(Login login) {
-        var authData = authenticationRepository.findByEmail(login.email())
-            .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
+        var found = authenticationRepository.findByEmail(login.email());
+        if (found.isEmpty()) {
+            log.info("login fallido email={} motivo=correo-no-existe", login.email());
+            throw new InvalidCredentialsException("Invalid credentials");
+        }
+        AuthenticationData authData = found.get();
 
         Profile profile = toProfile(authData);
 
         if (!passwordEncoder.matches(login.password(), profile.getPasswordHash())) {
+            log.info("login fallido email={} motivo=contrasena-invalida", login.email());
             throw new InvalidCredentialsException("Invalid credentials");
         }
 
         if (profile.getStatus() != Status.Active) {
+            log.info("login fallido email={} motivo=cuenta-inactiva", login.email());
             throw new AccountInactiveException("Account is inactive");
         }
+
+        log.info("login exitoso email={}", authData.email);
 
         String accessTokenJti = UUID.randomUUID().toString();
         String accessToken = tokenProvider.generatedAccessToken(
