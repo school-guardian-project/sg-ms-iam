@@ -14,6 +14,7 @@ public record ProfileResponseDto(
         String schoolName,
         String name,
         String lastName,
-        String status
+        String status,
+        String cityName
 ) {
 }

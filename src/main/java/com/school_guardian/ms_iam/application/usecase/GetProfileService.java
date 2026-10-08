@@ -42,7 +42,7 @@ public class GetProfileService implements GetProfileUseCase {
         return new ProfileResponseDto(
             view.profileId, view.personId, view.email, view.roleId, view.roleName,
             view.campusId, view.campusName, view.schoolId, view.schoolName,
-            view.name, view.lastName, view.status
+            view.name, view.lastName, view.status, view.cityName
         );
     }
 }

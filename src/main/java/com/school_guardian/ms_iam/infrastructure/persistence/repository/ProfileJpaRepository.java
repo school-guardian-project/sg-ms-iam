@@ -36,13 +36,15 @@ public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID>
 
     @Query(value = """
         SELECT p.Id, p.PersonId, per.Email, p.RoleId, r.Name, p.CampuseId, sc.Name,
-               COALESCE(sa.SchoolId, sc.SchoolId), s.Name, per.Name, per.LastName, p.Status
+               COALESCE(sa.SchoolId, sc.SchoolId), s.Name, per.Name, per.LastName, p.Status,
+               ci.Name
         FROM Iam.Profile p
         INNER JOIN UserManagement.Person per ON per.Id = p.PersonId
         INNER JOIN Iam.Role r ON r.Id = p.RoleId
         LEFT JOIN School.SchoolAdmin sa ON sa.ProfileId = p.Id AND sa.Status = 'Active'
         LEFT JOIN School.SchoolCampus sc ON sc.Id = p.CampuseId
         LEFT JOIN School.School s ON s.Id = COALESCE(sa.SchoolId, sc.SchoolId)
+        LEFT JOIN Geographic.City ci ON ci.Id = s.CityId
         WHERE p.Id = :profileId
         """, nativeQuery = true)
     List<Object[]> findProfileViewById(UUID profileId);

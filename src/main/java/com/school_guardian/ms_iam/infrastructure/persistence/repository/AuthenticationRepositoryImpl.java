@@ -61,6 +61,7 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
         view.name = (String) row[9];
         view.lastName = (String) row[10];
         view.status = (String) row[11];
+        view.cityName = (String) row[12];
         return view;
     }
 
