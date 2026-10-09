@@ -1,6 +1,7 @@
 package com.school_guardian.ms_iam.infrastructure.config;
 
 import com.school_guardian.ms_iam.domain.event.PersonCreatedEvent;
+import com.school_guardian.ms_iam.domain.event.AdminSchoolUpdatedEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,9 +22,12 @@ public class KafkaConsumerConfig {
     @Bean
     public ConsumerFactory<String, PersonCreatedEvent> consumerFactory(
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
+        return createConsumerFactory(bootstrapServers, PersonCreatedEvent.class);
+    }
 
-        JacksonJsonDeserializer<PersonCreatedEvent> deserializer =
-                new JacksonJsonDeserializer<>(PersonCreatedEvent.class);
+    private <T> ConsumerFactory<String, T> createConsumerFactory(String bootstrapServers, Class<T> eventType) {
+        JacksonJsonDeserializer<T> deserializer =
+                new JacksonJsonDeserializer<>(eventType);
 
         deserializer.addTrustedPackages("*");
 
@@ -61,6 +65,15 @@ public class KafkaConsumerConfig {
 
         factory.setConsumerFactory(consumerFactory);
 
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, AdminSchoolUpdatedEvent>
+    adminSchoolUpdatedKafkaListenerContainerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
+        var factory = new ConcurrentKafkaListenerContainerFactory<String, AdminSchoolUpdatedEvent>();
+        factory.setConsumerFactory(createConsumerFactory(bootstrapServers, AdminSchoolUpdatedEvent.class));
         return factory;
     }
 }

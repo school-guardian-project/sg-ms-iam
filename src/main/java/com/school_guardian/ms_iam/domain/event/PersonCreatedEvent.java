@@ -27,4 +27,7 @@ public class PersonCreatedEvent {
 
     @JsonProperty("SchoolId")
     private UUID schoolId;
+
+    @JsonProperty("CampusId")
+    private UUID campusId;
 }

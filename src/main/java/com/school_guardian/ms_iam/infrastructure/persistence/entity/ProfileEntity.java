@@ -24,6 +24,9 @@ public class ProfileEntity {
     @Column(name = "PersonId", nullable = false)
     private UUID personId;
 
+    @Column(name = "CampuseId")
+    private UUID campusId;
+
     @Column(name = "PasswordHash", nullable = false, length = 100)
     private String passwordHash;
 

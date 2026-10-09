@@ -1,5 +1,18 @@
 # sg-ms-iam
 
+## Relacion entre perfiles y escuelas
+
+- Administradores: `Iam.Profile.Id -> School.SchoolAdmin.ProfileId -> School.School.Id`.
+  Se conserva la relacion existente, unica por perfil, y se actualiza mediante
+  `admin.created` y `admin.school.updated`. Este ultimo topic usa un consumidor
+  tipado como `AdminSchoolUpdatedEvent`, no como `PersonCreatedEvent`.
+- Estudiantes, conductores y acudientes: `Iam.Profile.CampuseId ->
+  School.SchoolCampus.Id -> School.SchoolCampus.SchoolId`. Los eventos de registro
+  transportan `CampusId`; JPA lo guarda en la columna existente `CampuseId`.
+- Login, refresh y `/api/v1/auth/profile` resuelven la escuela con la asignacion
+  administrativa o con la sede. `campusId` y `schoolId` no son intercambiables.
+  El identificador de perfil del JWT es su `sub`.
+
 ## Integracion con recuperacion
 
 Las rutas `/api/profiles/**` son internas y exigen `X-Internal-Api-Key`. Compose

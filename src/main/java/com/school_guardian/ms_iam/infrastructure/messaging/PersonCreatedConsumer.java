@@ -25,7 +25,8 @@ public class PersonCreatedConsumer {
     @KafkaListener(topics = "admin.created", groupId = "iam")
     public void onAdmin(PersonCreatedEvent event) { handle(event, "Admin"); }
 
-    @KafkaListener(topics = "admin.school.updated", groupId = "iam")
+    @KafkaListener(topics = "admin.school.updated", groupId = "iam",
+            containerFactory = "adminSchoolUpdatedKafkaListenerContainerFactory")
     public void onAdminSchoolUpdated(AdminSchoolUpdatedEvent event) {
         try {
             updateAdminSchoolService.execute(event.getPersonId(), event.getSchoolId());
