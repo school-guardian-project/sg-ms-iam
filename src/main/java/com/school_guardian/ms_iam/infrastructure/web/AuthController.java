@@ -4,9 +4,13 @@ import com.school_guardian.ms_iam.application.dto.LoginRequestDto;
 import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
 import com.school_guardian.ms_iam.application.dto.ProfileResponseDto;
 import com.school_guardian.ms_iam.application.dto.RefreshResponseDto;
+import com.school_guardian.ms_iam.application.dto.TermsAcceptanceDtos;
 import com.school_guardian.ms_iam.domain.port.in.GetProfileUseCase;
+import com.school_guardian.ms_iam.domain.port.in.GetTermsStatusUseCase;
+import com.school_guardian.ms_iam.domain.port.in.ListTermsAcceptancesUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LogoutUseCase;
+import com.school_guardian.ms_iam.domain.port.in.RecordTermsAcceptanceUseCase;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,6 +20,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -27,6 +33,9 @@ public class AuthController {
     private final RefreshTokenUseCase refreshTokenUseCase;
     private final LogoutUseCase logoutUseCase;
     private final GetProfileUseCase getProfileUseCase;
+    private final RecordTermsAcceptanceUseCase recordTermsAcceptanceUseCase;
+    private final ListTermsAcceptancesUseCase listTermsAcceptancesUseCase;
+    private final GetTermsStatusUseCase getTermsStatusUseCase;
 
     @GetMapping("/profile")
     @Operation(summary = "Current user profile", description = "Returns the profile of the authenticated user, including role and tenant (campus/school)")
@@ -116,6 +125,73 @@ public class AuthController {
         response.addCookie(clearCookie);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/terms/status")
+    @Operation(summary = "My terms coverage status", description = "Tells whether the authenticated profile is covered by the current terms version, either by own acceptance or by a parent authorization (minors)")
+    public ResponseEntity<GetTermsStatusUseCase.TermsStatus> termsStatus(
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            var result = getTermsStatusUseCase.execute(new GetTermsStatusUseCase.GetTermsStatus(accessToken));
+            return ResponseEntity.ok(result);
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    @GetMapping("/terms/acceptances")
+    @Operation(summary = "List my terms acceptances", description = "Returns the append-only acceptance history of the authenticated profile, latest first")
+    public ResponseEntity<List<TermsAcceptanceDtos.AcceptanceResponse>> acceptances(
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            var result = listTermsAcceptancesUseCase.execute(new ListTermsAcceptancesUseCase.ListTermsAcceptances(accessToken));
+            return ResponseEntity.ok(result.stream()
+                .map(acceptance -> new TermsAcceptanceDtos.AcceptanceResponse(
+                    acceptance.getId(), acceptance.getProfileId(), acceptance.getStudentProfileId(),
+                    acceptance.getTermsVersion(), acceptance.getAcceptedAt(), acceptance.getChannel()))
+                .toList());
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    @PostMapping("/terms/accept")
+    @Operation(summary = "Record terms acceptance", description = "Records acceptance of a terms version for the authenticated profile, optionally on behalf of student profiles (minors)")
+    public ResponseEntity<List<TermsAcceptanceDtos.AcceptanceResponse>> acceptTerms(
+        @RequestHeader(value = "Authorization", required = false) String authHeader,
+        @Valid @RequestBody TermsAcceptanceDtos.AcceptTermsRequest request,
+        jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            var command = new RecordTermsAcceptanceUseCase.RecordTermsAcceptance(
+                accessToken, request.termsVersion(), request.studentProfileIds(),
+                httpRequest.getRemoteAddr(), "mobile");
+            var ids = recordTermsAcceptanceUseCase.execute(command);
+            var result = listTermsAcceptancesUseCase.execute(new ListTermsAcceptancesUseCase.ListTermsAcceptances(accessToken));
+            var recorded = new java.util.HashSet<>(ids);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(result.stream()
+                .filter(acceptance -> recorded.contains(acceptance.getId()))
+                .map(acceptance -> new TermsAcceptanceDtos.AcceptanceResponse(
+                    acceptance.getId(), acceptance.getProfileId(), acceptance.getStudentProfileId(),
+                    acceptance.getTermsVersion(), acceptance.getAcceptedAt(), acceptance.getChannel()))
+                .toList());
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
     }
 
     private String extractToken(String authHeader) {
