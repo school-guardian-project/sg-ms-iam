@@ -33,4 +33,15 @@ public class ProfileRepositoryImpl implements ProfileRepository {
         profile.setId(saved.getId());
         return profile;
     }
+
+    @Override
+    public void assignSchoolByPersonId(UUID personId, UUID schoolId) {
+        profileJpaRepository.flush();
+        UUID profileId = profileJpaRepository.findByPersonId(personId)
+            .map(ProfileEntity::getId)
+            .orElseThrow(() -> new IllegalStateException("Profile not found for administrator " + personId));
+        if (profileJpaRepository.updateSchoolAssignment(profileId, schoolId) == 0) {
+            profileJpaRepository.createSchoolAssignment(profileId, schoolId);
+        }
+    }
 }

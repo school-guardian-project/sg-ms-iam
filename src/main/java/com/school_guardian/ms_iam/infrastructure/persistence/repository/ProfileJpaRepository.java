@@ -43,6 +43,21 @@ public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID>
         """, nativeQuery = true)
     int updatePhone(UUID profileId, long phone);
 
+    @Modifying
+    @Query(value = """
+        UPDATE School.SchoolAdmin
+        SET SchoolId = :schoolId, Status = 'Active'
+        WHERE ProfileId = :profileId
+        """, nativeQuery = true)
+    int updateSchoolAssignment(UUID profileId, UUID schoolId);
+
+    @Modifying
+    @Query(value = """
+        INSERT INTO School.SchoolAdmin (Id, SchoolId, ProfileId, Status)
+        VALUES (NEWID(), :schoolId, :profileId, 'Active')
+        """, nativeQuery = true)
+    int createSchoolAssignment(UUID profileId, UUID schoolId);
+
     @Query(value = """
         SELECT p.Id, p.PersonId, p.PasswordHash, p.RoleId, p.Status, per.Email,
                p.CampuseId, COALESCE(sa.SchoolId, sc.SchoolId) AS SchoolId
