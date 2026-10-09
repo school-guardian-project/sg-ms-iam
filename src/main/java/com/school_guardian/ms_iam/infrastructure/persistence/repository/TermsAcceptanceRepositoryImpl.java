@@ -39,15 +39,27 @@ public class TermsAcceptanceRepositoryImpl implements TermsAcceptanceRepository 
     public List<TermsAcceptance> findByProfileId(UUID profileId) {
         return termsAcceptanceJpaRepository.findByProfileIdOrderByAcceptedAtDesc(profileId)
             .stream()
-            .map(entity -> new TermsAcceptance(
-                entity.getId(),
-                entity.getProfileId(),
-                entity.getStudentProfileId(),
-                entity.getTermsVersion(),
-                entity.getAcceptedAt(),
-                entity.getIpAddress(),
-                entity.getChannel()
-            ))
+            .map(this::toModel)
             .toList();
+    }
+
+    @Override
+    public List<TermsAcceptance> findByStudentProfileId(UUID studentProfileId) {
+        return termsAcceptanceJpaRepository.findByStudentProfileIdOrderByAcceptedAtDesc(studentProfileId)
+            .stream()
+            .map(this::toModel)
+            .toList();
+    }
+
+    private TermsAcceptance toModel(TermsAcceptanceEntity entity) {
+        return new TermsAcceptance(
+            entity.getId(),
+            entity.getProfileId(),
+            entity.getStudentProfileId(),
+            entity.getTermsVersion(),
+            entity.getAcceptedAt(),
+            entity.getIpAddress(),
+            entity.getChannel()
+        );
     }
 }

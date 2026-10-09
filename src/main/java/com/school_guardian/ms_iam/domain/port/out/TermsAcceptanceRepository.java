@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface TermsAcceptanceRepository {
     TermsAcceptance save(TermsAcceptance acceptance);
     List<TermsAcceptance> findByProfileId(UUID profileId);
+    List<TermsAcceptance> findByStudentProfileId(UUID studentProfileId);
 }

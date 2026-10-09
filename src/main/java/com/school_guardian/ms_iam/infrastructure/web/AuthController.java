@@ -6,6 +6,7 @@ import com.school_guardian.ms_iam.application.dto.ProfileResponseDto;
 import com.school_guardian.ms_iam.application.dto.RefreshResponseDto;
 import com.school_guardian.ms_iam.application.dto.TermsAcceptanceDtos;
 import com.school_guardian.ms_iam.domain.port.in.GetProfileUseCase;
+import com.school_guardian.ms_iam.domain.port.in.GetTermsStatusUseCase;
 import com.school_guardian.ms_iam.domain.port.in.ListTermsAcceptancesUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LogoutUseCase;
@@ -34,6 +35,7 @@ public class AuthController {
     private final GetProfileUseCase getProfileUseCase;
     private final RecordTermsAcceptanceUseCase recordTermsAcceptanceUseCase;
     private final ListTermsAcceptancesUseCase listTermsAcceptancesUseCase;
+    private final GetTermsStatusUseCase getTermsStatusUseCase;
 
     @GetMapping("/profile")
     @Operation(summary = "Current user profile", description = "Returns the profile of the authenticated user, including role and tenant (campus/school)")
@@ -123,6 +125,23 @@ public class AuthController {
         response.addCookie(clearCookie);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/terms/status")
+    @Operation(summary = "My terms coverage status", description = "Tells whether the authenticated profile is covered by the current terms version, either by own acceptance or by a parent authorization (minors)")
+    public ResponseEntity<GetTermsStatusUseCase.TermsStatus> termsStatus(
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            var result = getTermsStatusUseCase.execute(new GetTermsStatusUseCase.GetTermsStatus(accessToken));
+            return ResponseEntity.ok(result);
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
     }
 
     @GetMapping("/terms/acceptances")

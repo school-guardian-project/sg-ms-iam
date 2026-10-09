@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface TermsAcceptanceJpaRepository extends JpaRepository<TermsAcceptanceEntity, UUID> {
     List<TermsAcceptanceEntity> findByProfileIdOrderByAcceptedAtDesc(UUID profileId);
+    List<TermsAcceptanceEntity> findByStudentProfileIdOrderByAcceptedAtDesc(UUID studentProfileId);
 }
