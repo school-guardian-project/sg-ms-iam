@@ -69,6 +69,7 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
         AuthenticationData data = new AuthenticationData();
         data.profileId = entity.getId();
         data.personId = entity.getPersonId();
+        data.campusId = entity.getCampusId();
         data.passwordHash = entity.getPasswordHash();
         data.roleId = entity.getRoleId();
         data.status = entity.getStatus();

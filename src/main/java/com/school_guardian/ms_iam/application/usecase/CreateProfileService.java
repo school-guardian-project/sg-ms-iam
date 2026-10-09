@@ -41,11 +41,15 @@ public class CreateProfileService implements CreateProfileUseCase {
         Profile profile = new Profile();
         profile.setId(UUID.randomUUID());
         profile.setPersonId(event.getPersonId());
+        profile.setCampusId(event.getCampusId());
         profile.setPasswordHash(passwordEncoder.encode(event.getIdentificationNumber()));
         profile.setRole(role);
         profile.setStatus(Status.Active);
 
         profileRepository.save(profile);
+        if ("Admin".equals(roleName) && event.getSchoolId() != null) {
+            profileRepository.assignSchoolByPersonId(profile.getPersonId(), event.getSchoolId());
+        }
 
         ProfileCreatedEvent profileCreatedEvent = new ProfileCreatedEvent(
                 UUID.randomUUID(),

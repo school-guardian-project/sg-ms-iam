@@ -15,6 +15,7 @@ import java.util.UUID;
 public class Profile {
     private UUID id;
     private UUID personId;
+    private UUID campusId;
     private String passwordHash;
     private Role role;
     private Status status;
