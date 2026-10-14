@@ -26,6 +26,7 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/.well-known/jwks.json").permitAll()
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/scalar/**", "/webjars/**", "/favicon.ico", "/favicon.svg").permitAll()
                 .anyRequest().authenticated()
             )

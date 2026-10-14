@@ -4,30 +4,46 @@ import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Issues and verifies JWTs using RS256 (asymmetric RSA).
+ *
+ * <p>Access and refresh tokens are signed with the IAM private key. The matching
+ * public key is published through the JWKS endpoint so the API gateway (Kong)
+ * can validate tokens without sharing any secret with the services.</p>
+ */
 @Component
 public class JwtTokenProvider implements TokenProvider {
 
-    private final SecretKey secretKey;
+    private final PrivateKey privateKey;
+    private final PublicKey publicKey;
+    private final String keyId;
+    private final String issuer;
+    private final String audience;
     private final long accessTokenExpirationMinutes;
     private final long refreshTokenExpirationDays;
 
     public JwtTokenProvider(
-        @Value("${app.jwt.secret}") String secret,
+        RsaKeyProvider keyProvider,
+        @Value("${app.jwt.issuer:school-guardian-iam}") String issuer,
+        @Value("${app.jwt.audience:school-guardian-api}") String audience,
         @Value("${app.jwt.access-token-expiration-minutes:15}") long accessTokenExpirationMinutes,
         @Value("${app.jwt.refresh-token-expiration-days:30}") long refreshTokenExpirationDays
     ) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.privateKey = keyProvider.getPrivateKey();
+        this.publicKey = keyProvider.getPublicKey();
+        this.keyId = keyProvider.getKeyId();
+        this.issuer = issuer;
+        this.audience = audience;
         this.accessTokenExpirationMinutes = accessTokenExpirationMinutes;
         this.refreshTokenExpirationDays = refreshTokenExpirationDays;
     }
@@ -39,6 +55,9 @@ public class JwtTokenProvider implements TokenProvider {
         String jti = (String) extractClaims.getOrDefault("jti", UUID.randomUUID().toString());
 
         var builder = Jwts.builder()
+            .header().keyId(keyId).and()
+            .issuer(issuer)
+            .audience().add(audience).and()
             .subject(profileId.toString())
             .claim("personId", personId.toString())
             .claim("roleId", roleId)
@@ -51,7 +70,7 @@ public class JwtTokenProvider implements TokenProvider {
         if (campusId != null) builder.claim("campusId", campusId.toString());
         if (schoolId != null) builder.claim("schoolId", schoolId.toString());
 
-        return builder.signWith(secretKey).compact();
+        return builder.signWith(privateKey, Jwts.SIG.RS256).compact();
     }
 
     @Override
@@ -60,6 +79,9 @@ public class JwtTokenProvider implements TokenProvider {
         Instant expiry = now.plusSeconds(refreshTokenExpirationDays * 24 * 60 * 60);
 
         var builder = Jwts.builder()
+            .header().keyId(keyId).and()
+            .issuer(issuer)
+            .audience().add(audience).and()
             .subject(profileId.toString())
             .claim("personId", personId.toString())
             .claim("roleId", roleId)
@@ -71,7 +93,7 @@ public class JwtTokenProvider implements TokenProvider {
         if (campusId != null) builder.claim("campusId", campusId.toString());
         if (schoolId != null) builder.claim("schoolId", schoolId.toString());
 
-        return builder.signWith(secretKey).compact();
+        return builder.signWith(privateKey, Jwts.SIG.RS256).compact();
     }
 
     @Override
@@ -114,7 +136,9 @@ public class JwtTokenProvider implements TokenProvider {
 
     private Claims parse(String token) {
         return Jwts.parser()
-            .verifyWith(secretKey)
+            .verifyWith(publicKey)
+            .requireIssuer(issuer)
+            .requireAudience(audience)
             .build()
             .parseSignedClaims(token)
             .getPayload();

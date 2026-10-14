@@ -31,7 +31,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // /api/v1/auth/** is permitAll; the refresh flow sends a refresh token
         // in the Authorization header (mobile) which is not an access token.
         String path = request.getRequestURI();
-        return path.startsWith("/api/v1/auth/") || path.equals("/api/profiles")
+        return path.startsWith("/api/v1/auth/") || path.equals("/.well-known/jwks.json")
+            || path.equals("/api/profiles")
             || path.startsWith("/api/profiles/");
     }
 
