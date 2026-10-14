@@ -8,10 +8,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080"
+      - "5001"
     env_file:
       - .env
     environment:
-      APP_INTERNAL_API_KEY: "${INTERNAL_API_KEY:?Set INTERNAL_API_KEY to match ms-forgot-information}"
+      APP_INTERNAL_API_KEY: "${APP_INTERNAL_API_KEY:?Set APP_INTERNAL_API_KEY in ms-iam/.env}"
     networks:
       - sg-services-network
 
