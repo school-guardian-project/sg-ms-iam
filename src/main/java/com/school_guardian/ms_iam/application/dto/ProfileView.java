@@ -16,4 +16,5 @@ public class ProfileView {
     public String lastName;
     public String status;
     public String cityName;
+    public String identificationNumber;
 }

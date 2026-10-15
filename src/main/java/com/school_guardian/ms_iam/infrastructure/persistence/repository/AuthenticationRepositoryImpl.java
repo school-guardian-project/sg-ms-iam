@@ -6,6 +6,7 @@ import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.ProfileEntity;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,11 +25,13 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
             .map(this::toAuthenticationData);
     }
 
+    @Override
     public Optional<AuthenticationData> findByEmail(String email) {
         return profileJpaRepository.findAuthDataByEmail(email)
             .stream()
             .findFirst()
-            .map(this::toAuthenticationDataFromJoin);
+            .map(this::toAuthenticationDataFromJoin)
+            .map(this::withPermissions);
     }
 
     @Override
@@ -36,7 +39,19 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
         return profileJpaRepository.findAuthDataByProfileId(profileId)
             .stream()
             .findFirst()
-            .map(this::toAuthenticationDataFromJoin);
+            .map(this::toAuthenticationDataFromJoin)
+            .map(this::withPermissions);
+    }
+
+    @Override
+    public List<String> findPermissionNamesByRoleId(Byte roleId) {
+        if (roleId == null) return List.of();
+        return profileJpaRepository.findPermissionNamesByRoleId(roleId);
+    }
+
+    private AuthenticationData withPermissions(AuthenticationData data) {
+        data.permissions = findPermissionNamesByRoleId(data.roleId);
+        return data;
     }
 
     @Override
@@ -62,6 +77,7 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
         view.lastName = (String) row[10];
         view.status = (String) row[11];
         view.cityName = (String) row[12];
+        view.identificationNumber = (String) row[13];
         return view;
     }
 
@@ -86,6 +102,8 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
         data.email = (String) row[5];
         data.campusId = row[6] != null ? toUuid(row[6]) : null;
         data.schoolId = row[7] != null ? toUuid(row[7]) : null;
+        data.roleName = (String) row[8];
+        data.identificationNumber = (String) row[9];
         return data;
     }
 

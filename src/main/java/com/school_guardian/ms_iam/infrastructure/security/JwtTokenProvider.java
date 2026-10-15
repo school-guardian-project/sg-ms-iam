@@ -11,6 +11,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -49,7 +50,9 @@ public class JwtTokenProvider implements TokenProvider {
     }
 
     @Override
-    public String generatedAccessToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId, Map<String, Object> extractClaims) {
+    public String generatedAccessToken(UUID profileId, UUID personId, String email, Byte roleId, String roleName,
+                                       String identificationNumber, UUID campusId, UUID schoolId,
+                                       List<String> permissions, Map<String, Object> extractClaims) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(accessTokenExpirationMinutes * 60);
         String jti = (String) extractClaims.getOrDefault("jti", UUID.randomUUID().toString());
@@ -67,14 +70,18 @@ public class JwtTokenProvider implements TokenProvider {
             .expiration(Date.from(expiry));
 
         if (email != null) builder.claim("email", email);
+        if (roleName != null) builder.claim("role", roleName);
+        if (identificationNumber != null) builder.claim("documentNumber", identificationNumber);
         if (campusId != null) builder.claim("campusId", campusId.toString());
         if (schoolId != null) builder.claim("schoolId", schoolId.toString());
+        builder.claim("permissions", permissions != null ? permissions : List.of());
 
         return builder.signWith(privateKey, Jwts.SIG.RS256).compact();
     }
 
     @Override
-    public String generatedRefreshToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId) {
+    public String generatedRefreshToken(UUID profileId, UUID personId, String email, Byte roleId, String roleName,
+                                        String identificationNumber, UUID campusId, UUID schoolId) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(refreshTokenExpirationDays * 24 * 60 * 60);
 
@@ -90,6 +97,8 @@ public class JwtTokenProvider implements TokenProvider {
             .expiration(Date.from(expiry));
 
         if (email != null) builder.claim("email", email);
+        if (roleName != null) builder.claim("role", roleName);
+        if (identificationNumber != null) builder.claim("documentNumber", identificationNumber);
         if (campusId != null) builder.claim("campusId", campusId.toString());
         if (schoolId != null) builder.claim("schoolId", schoolId.toString());
 
@@ -102,13 +111,17 @@ public class JwtTokenProvider implements TokenProvider {
         if (!"access".equals(claims.get("type"))) {
             throw new JwtException("Not an access token");
         }
+        List<String> permissions = claims.get("permissions", List.class);
         return new TokenClaims(
             UUID.fromString(claims.getSubject()),
             UUID.fromString(claims.get("personId", String.class)),
             claims.get("email", String.class),
             claims.get("roleId", Byte.class),
+            claims.get("role", String.class),
+            claims.get("documentNumber", String.class),
             claims.get("campusId") != null ? UUID.fromString(claims.get("campusId", String.class)) : null,
             claims.get("schoolId") != null ? UUID.fromString(claims.get("schoolId", String.class)) : null,
+            permissions != null ? permissions : List.of(),
             claims.get("jti", String.class),
             claims.getIssuedAt().toInstant(),
             claims.getExpiration().toInstant(),
