@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+// Internal contract v1 owned by ms-iam. Consumed by ms-fleet (sg-ms-fleet) to
+// resolve a profile before assigning a driver and to render the driver name in
+// bus listings. The HTTP counterpart (/api/v1/profiles/**) was removed:
+// inter-service traffic is gRPC only (ADR-005).
+// Authentication: metadata header "x-internal-api-key" (shared secret from env).
+package usermanagement.v1;
+
+option java_multiple_files = true;
+option java_package = "com.school_guardian.ms_iam.infrastructure.grpc.contract";
+option java_outer_classname = "ProfileProto";
+
+service ProfileService {
+  // Returns true if the profile exists and is active.
+  rpc ProfileExists (ProfileExistsRequest) returns (ProfileExistsResponse);
+
+  // Returns the name of the person associated with the active profile, or NOT_FOUND.
+  rpc GetDriverName (GetDriverNameRequest) returns (GetDriverNameResponse);
+}
+
+message ProfileExistsRequest {
+  string profile_id = 1;
+}
+
+message ProfileExistsResponse {
+  bool exists = 1;
+}
+
+message GetDriverNameRequest {
+  string profile_id = 1;
+}
+
+message GetDriverNameResponse {
+  string name = 1;
+}
