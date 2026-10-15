@@ -2,6 +2,7 @@ package com.school_guardian.ms_iam.infrastructure.config;
 
 import com.school_guardian.ms_iam.domain.event.PersonCreatedEvent;
 import com.school_guardian.ms_iam.domain.event.AdminSchoolUpdatedEvent;
+import com.school_guardian.ms_iam.domain.event.PersonStatusChangedEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,6 +75,15 @@ public class KafkaConsumerConfig {
             @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
         var factory = new ConcurrentKafkaListenerContainerFactory<String, AdminSchoolUpdatedEvent>();
         factory.setConsumerFactory(createConsumerFactory(bootstrapServers, AdminSchoolUpdatedEvent.class));
+        return factory;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, PersonStatusChangedEvent>
+    userStatusChangedKafkaListenerContainerFactory(
+            @Value("${spring.kafka.bootstrap-servers}") String bootstrapServers) {
+        var factory = new ConcurrentKafkaListenerContainerFactory<String, PersonStatusChangedEvent>();
+        factory.setConsumerFactory(createConsumerFactory(bootstrapServers, PersonStatusChangedEvent.class));
         return factory;
     }
 }
