@@ -46,13 +46,15 @@ public class RefreshTokenService implements RefreshTokenUseCase {
         String newAccessJti = UUID.randomUUID().toString();
         String newAccessToken = tokenProvider.generatedAccessToken(
             profile.getId(), profile.getPersonId(), authData.email,
-            profile.getRole().getId(), authData.campusId, authData.schoolId,
+            profile.getRole().getId(), authData.roleName, authData.identificationNumber,
+            authData.campusId, authData.schoolId, authData.permissions,
             Map.of("jti", newAccessJti)
         );
 
         String newRefreshToken = tokenProvider.generatedRefreshToken(
             profile.getId(), profile.getPersonId(), authData.email,
-            profile.getRole().getId(), authData.campusId, authData.schoolId
+            profile.getRole().getId(), authData.roleName, authData.identificationNumber,
+            authData.campusId, authData.schoolId
         );
 
         Instant accessExpiresAt = Instant.now().plusSeconds(ACCESS_TOKEN_MINUTES * 60);

@@ -39,10 +39,13 @@ public class GetProfileService implements GetProfileUseCase {
         var view = authenticationRepository.findProfileViewById(claims.profileId())
             .orElseThrow(() -> new InvalidTokenException("Profile not found"));
 
+        var permissions = authenticationRepository.findPermissionNamesByRoleId(view.roleId);
+
         return new ProfileResponseDto(
             view.profileId, view.personId, view.email, view.roleId, view.roleName,
             view.campusId, view.campusName, view.schoolId, view.schoolName,
-            view.name, view.lastName, view.status, view.cityName
+            view.name, view.lastName, view.identificationNumber, view.status, view.cityName,
+            permissions
         );
     }
 }

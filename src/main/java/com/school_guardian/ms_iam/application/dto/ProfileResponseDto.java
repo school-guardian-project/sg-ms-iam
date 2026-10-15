@@ -1,5 +1,6 @@
 package com.school_guardian.ms_iam.application.dto;
 
+import java.util.List;
 import java.util.UUID;
 
 public record ProfileResponseDto(
@@ -14,7 +15,9 @@ public record ProfileResponseDto(
         String schoolName,
         String name,
         String lastName,
+        String identificationNumber,
         String status,
-        String cityName
+        String cityName,
+        List<String> permissions
 ) {
 }

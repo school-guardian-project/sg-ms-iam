@@ -60,9 +60,11 @@ public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID>
 
     @Query(value = """
         SELECT p.Id, p.PersonId, p.PasswordHash, p.RoleId, p.Status, per.Email,
-               p.CampuseId, COALESCE(sa.SchoolId, sc.SchoolId) AS SchoolId
+               p.CampuseId, COALESCE(sa.SchoolId, sc.SchoolId) AS SchoolId,
+               r.Name AS RoleName, per.IdentificationNumber
         FROM Iam.Profile p
         INNER JOIN UserManagement.Person per ON p.PersonId = per.Id
+        INNER JOIN Iam.Role r ON r.Id = p.RoleId
         LEFT JOIN School.SchoolAdmin sa ON sa.ProfileId = p.Id AND sa.Status = 'Active'
         LEFT JOIN School.SchoolCampus sc ON sc.Id = p.CampuseId
         WHERE per.Email = :email
@@ -71,9 +73,11 @@ public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID>
 
     @Query(value = """
         SELECT p.Id, p.PersonId, p.PasswordHash, p.RoleId, p.Status, per.Email,
-               p.CampuseId, COALESCE(sa.SchoolId, sc.SchoolId) AS SchoolId
+               p.CampuseId, COALESCE(sa.SchoolId, sc.SchoolId) AS SchoolId,
+               r.Name AS RoleName, per.IdentificationNumber
         FROM Iam.Profile p
         INNER JOIN UserManagement.Person per ON p.PersonId = per.Id
+        INNER JOIN Iam.Role r ON r.Id = p.RoleId
         LEFT JOIN School.SchoolAdmin sa ON sa.ProfileId = p.Id AND sa.Status = 'Active'
         LEFT JOIN School.SchoolCampus sc ON sc.Id = p.CampuseId
         WHERE p.Id = :profileId
@@ -81,9 +85,18 @@ public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID>
     List<Object[]> findAuthDataByProfileId(UUID profileId);
 
     @Query(value = """
+        SELECT pe.TypePermissions
+        FROM Iam.PermissionsRole pr
+        INNER JOIN Iam.Permissions pe ON pe.Id = pr.PermissionsId
+        WHERE pr.RoleId = :roleId
+        ORDER BY pe.TypePermissions
+        """, nativeQuery = true)
+    List<String> findPermissionNamesByRoleId(Byte roleId);
+
+    @Query(value = """
         SELECT p.Id, p.PersonId, per.Email, p.RoleId, r.Name, p.CampuseId, sc.Name,
                COALESCE(sa.SchoolId, sc.SchoolId), s.Name, per.Name, per.LastName, p.Status,
-               ci.Name
+               ci.Name, per.IdentificationNumber
         FROM Iam.Profile p
         INNER JOIN UserManagement.Person per ON per.Id = p.PersonId
         INNER JOIN Iam.Role r ON r.Id = p.RoleId
