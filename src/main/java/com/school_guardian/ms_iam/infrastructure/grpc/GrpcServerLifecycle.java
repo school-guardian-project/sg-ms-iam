@@ -21,6 +21,7 @@ import java.net.InetSocketAddress;
 public class GrpcServerLifecycle implements SmartLifecycle {
 
     private final InternalProfileGrpcAdapter internalProfileAdapter;
+    private final ProfileGrpcAdapter profileAdapter;
     private final String internalApiKey;
     private final int port;
     private final boolean enabled;
@@ -30,10 +31,12 @@ public class GrpcServerLifecycle implements SmartLifecycle {
 
     public GrpcServerLifecycle(
         InternalProfileGrpcAdapter internalProfileAdapter,
+        ProfileGrpcAdapter profileAdapter,
         @Value("${app.internal.api-key:}") String internalApiKey,
         @Value("${grpc.server.port:5001}") int port,
         @Value("${grpc.server.enabled:true}") boolean enabled) {
         this.internalProfileAdapter = internalProfileAdapter;
+        this.profileAdapter = profileAdapter;
         this.internalApiKey = internalApiKey;
         this.port = port;
         this.enabled = enabled;
@@ -49,6 +52,8 @@ public class GrpcServerLifecycle implements SmartLifecycle {
         try {
             server = NettyServerBuilder.forAddress(new InetSocketAddress(port))
                 .addService(ServerInterceptors.intercept(internalProfileAdapter,
+                    new InternalApiKeyInterceptor(internalApiKey)))
+                .addService(ServerInterceptors.intercept(profileAdapter,
                     new InternalApiKeyInterceptor(internalApiKey)))
                 .build()
                 .start();

@@ -12,15 +12,11 @@ import com.school_guardian.ms_iam.infrastructure.grpc.contract.UpdatePasswordReq
 import com.school_guardian.ms_iam.infrastructure.grpc.contract.UpdatePasswordResponse;
 import com.school_guardian.ms_iam.infrastructure.grpc.contract.UpdatePhoneRequest;
 import com.school_guardian.ms_iam.infrastructure.grpc.contract.UpdatePhoneResponse;
-import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
-import java.util.function.Supplier;
 
 /**
  * Inbound gRPC adapter (hexagonal driving adapter) for the internal profile
@@ -30,7 +26,6 @@ import java.util.function.Supplier;
  */
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class InternalProfileGrpcAdapter extends InternalProfileServiceGrpc.InternalProfileServiceImplBase {
 
     private static final String PHONE_E164_REGEX = "^\\+[1-9]\\d{7,14}$";
@@ -42,7 +37,7 @@ public class InternalProfileGrpcAdapter extends InternalProfileServiceGrpc.Inter
 
     @Override
     public void findProfileByEmail(FindProfileByEmailRequest request, StreamObserver<ProfileLookup> observer) {
-        respond(observer, () -> {
+        GrpcResponseSupport.respond(observer, () -> {
             requireEmail(request.getEmail());
             InternalProfileService.Lookup lookup = service.findByEmail(request.getEmail());
             return ProfileLookup.newBuilder()
@@ -54,8 +49,8 @@ public class InternalProfileGrpcAdapter extends InternalProfileServiceGrpc.Inter
 
     @Override
     public void phoneMatches(PhoneMatchesRequest request, StreamObserver<PhoneMatchesResponse> observer) {
-        respond(observer, () -> {
-            UUID profileId = requireUuid(request.getProfileId());
+        GrpcResponseSupport.respond(observer, () -> {
+            UUID profileId = GrpcResponseSupport.requireUuid(request.getProfileId(), "profile_id");
             requirePhone(request.getPhoneE164());
             return PhoneMatchesResponse.newBuilder()
                 .setMatches(service.phoneMatches(profileId, request.getPhoneE164()))
@@ -65,8 +60,8 @@ public class InternalProfileGrpcAdapter extends InternalProfileServiceGrpc.Inter
 
     @Override
     public void updatePassword(UpdatePasswordRequest request, StreamObserver<UpdatePasswordResponse> observer) {
-        respond(observer, () -> {
-            UUID profileId = requireUuid(request.getProfileId());
+        GrpcResponseSupport.respond(observer, () -> {
+            UUID profileId = GrpcResponseSupport.requireUuid(request.getProfileId(), "profile_id");
             requirePassword(request.getNewPassword());
             service.updatePassword(profileId, request.getNewPassword());
             return UpdatePasswordResponse.getDefaultInstance();
@@ -75,8 +70,8 @@ public class InternalProfileGrpcAdapter extends InternalProfileServiceGrpc.Inter
 
     @Override
     public void updateEmail(UpdateEmailRequest request, StreamObserver<UpdateEmailResponse> observer) {
-        respond(observer, () -> {
-            UUID profileId = requireUuid(request.getProfileId());
+        GrpcResponseSupport.respond(observer, () -> {
+            UUID profileId = GrpcResponseSupport.requireUuid(request.getProfileId(), "profile_id");
             requireEmail(request.getNewEmail());
             service.updateEmail(profileId, request.getNewEmail());
             return UpdateEmailResponse.getDefaultInstance();
@@ -85,48 +80,12 @@ public class InternalProfileGrpcAdapter extends InternalProfileServiceGrpc.Inter
 
     @Override
     public void updatePhone(UpdatePhoneRequest request, StreamObserver<UpdatePhoneResponse> observer) {
-        respond(observer, () -> {
-            UUID profileId = requireUuid(request.getProfileId());
+        GrpcResponseSupport.respond(observer, () -> {
+            UUID profileId = GrpcResponseSupport.requireUuid(request.getProfileId(), "profile_id");
             requirePhone(request.getNewPhoneE164());
             service.updatePhone(profileId, request.getNewPhoneE164());
             return UpdatePhoneResponse.getDefaultInstance();
         });
-    }
-
-    private <T> void respond(StreamObserver<T> observer, Supplier<T> action) {
-        try {
-            observer.onNext(action.get());
-            observer.onCompleted();
-        } catch (ResponseStatusException ex) {
-            observer.onError(toGrpcStatus(ex).asRuntimeException());
-        } catch (IllegalArgumentException ex) {
-            observer.onError(Status.INVALID_ARGUMENT
-                .withDescription(ex.getMessage())
-                .asRuntimeException());
-        } catch (Exception ex) {
-            log.error("Unexpected error handling internal profile gRPC call", ex);
-            observer.onError(Status.INTERNAL
-                .withDescription("Unexpected error")
-                .asRuntimeException());
-        }
-    }
-
-    private Status toGrpcStatus(ResponseStatusException ex) {
-        Status status = switch (ex.getStatusCode().value()) {
-            case 404 -> Status.NOT_FOUND;
-            case 409 -> Status.ALREADY_EXISTS;
-            case 400 -> Status.INVALID_ARGUMENT;
-            default -> Status.INTERNAL;
-        };
-        return status.withDescription(ex.getReason() != null ? ex.getReason() : status.getDescription());
-    }
-
-    private static UUID requireUuid(String raw) {
-        try {
-            return UUID.fromString(raw);
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("profile_id must be a UUID");
-        }
     }
 
     private static void requireEmail(String email) {

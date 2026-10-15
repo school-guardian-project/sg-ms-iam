@@ -107,4 +107,18 @@ public interface ProfileJpaRepository extends JpaRepository<ProfileEntity, UUID>
         WHERE p.Id = :profileId
         """, nativeQuery = true)
     List<Object[]> findProfileViewById(UUID profileId);
+
+    @Query(value = """
+        SELECT COUNT(1) FROM Iam.Profile p
+        WHERE p.Id = :profileId AND p.Status = 'Active'
+        """, nativeQuery = true)
+    long countActiveById(UUID profileId);
+
+    @Query(value = """
+        SELECT per.Name, per.LastName
+        FROM Iam.Profile p
+        INNER JOIN UserManagement.Person per ON per.Id = p.PersonId
+        WHERE p.Id = :profileId AND p.Status = 'Active' AND per.Status = 'Active'
+        """, nativeQuery = true)
+    List<Object[]> findActivePersonName(UUID profileId);
 }
