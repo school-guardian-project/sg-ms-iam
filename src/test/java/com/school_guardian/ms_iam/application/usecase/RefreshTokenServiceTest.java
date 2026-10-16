@@ -6,6 +6,7 @@ import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +60,8 @@ class RefreshTokenServiceTest {
     private void expectAValidRefreshToken() {
         when(tokenProvider.parseRefreshToken("valid-refresh"))
             .thenReturn(claimsExpiringAt(Instant.now().plusSeconds(3600)));
+        when(tokenProvider.accessTokenValidity()).thenReturn(Duration.ofMinutes(60));
+        when(tokenProvider.refreshTokenValidity()).thenReturn(Duration.ofDays(7));
     }
 
     @Test
@@ -91,6 +94,13 @@ class RefreshTokenServiceTest {
 
         assertTrue(response.accessTokenExpiresAt().isAfter(Instant.now()));
         assertTrue(response.refreshTokenExpiresAt().isAfter(response.accessTokenExpiresAt()));
+
+        long accessMinutes = Duration.between(Instant.now(), response.accessTokenExpiresAt()).toMinutes();
+        long refreshDays = Duration.between(Instant.now(), response.refreshTokenExpiresAt()).toDays();
+        assertTrue(accessMinutes >= 59 && accessMinutes <= 60,
+            "access token should live the configured 60 minutes, was " + accessMinutes + " min");
+        assertTrue(refreshDays >= 6 && refreshDays <= 7,
+            "refresh token should live the configured 7 days, was " + refreshDays + " d");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.school_guardian.ms_iam.domain.port.out;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -16,6 +17,15 @@ public interface TokenProvider {
     UUID extractJti(String token);
     Instant extractExpiration(String token);
     boolean isTokenExpired(String token);
+
+    /**
+     * Time-to-live applied to newly issued access tokens. The use cases (login, refresh)
+     * reuse it so the expiry they report matches the one inside the token itself.
+     */
+    Duration accessTokenValidity();
+
+    /** Time-to-live applied to newly issued refresh tokens. */
+    Duration refreshTokenValidity();
 
     record TokenClaims(UUID profileId, UUID personId, String email, Byte roleId, String roleName,
                        String identificationNumber, UUID campusId, UUID schoolId,

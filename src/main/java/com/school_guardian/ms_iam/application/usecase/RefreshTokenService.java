@@ -20,9 +20,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService implements RefreshTokenUseCase {
 
-    private static final int REFRESH_TOKEN_DAYS = 30;
-    private static final int ACCESS_TOKEN_MINUTES = 15;
-
     private final AuthenticationRepository authenticationRepository;
     private final TokenProvider tokenProvider;
 
@@ -57,8 +54,8 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             authData.campusId, authData.schoolId
         );
 
-        Instant accessExpiresAt = Instant.now().plusSeconds(ACCESS_TOKEN_MINUTES * 60);
-        Instant refreshExpiresAt = Instant.now().plusSeconds(REFRESH_TOKEN_DAYS * 24 * 60 * 60);
+        Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
+        Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
 
         return new RefreshTokenUseCase.RefreshResponse(newAccessToken, accessExpiresAt, newRefreshToken, refreshExpiresAt);
     }

@@ -22,9 +22,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class LoginService implements LoginUseCase {
 
-    private static final int REFRESH_TOKEN_DAYS = 30;
-    private static final int ACCESS_TOKEN_MINUTES = 15;
-
     private final AuthenticationRepository authenticationRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
@@ -66,8 +63,8 @@ public class LoginService implements LoginUseCase {
             authData.campusId, authData.schoolId
         );
 
-        Instant accessExpiresAt = Instant.now().plusSeconds(ACCESS_TOKEN_MINUTES * 60);
-        Instant refreshExpiresAt = Instant.now().plusSeconds(REFRESH_TOKEN_DAYS * 24 * 60 * 60);
+        Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
+        Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
 
         return new LoginResponseDto(
             accessToken, accessExpiresAt,
