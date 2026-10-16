@@ -16,8 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Set;
+import java.util.ArrayList;
 
 @Slf4j
 @Component
@@ -27,16 +26,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final TokenProvider tokenProvider;
     private final TokenDenyList tokenDenyList;
 
-    /**
-     * Rutas donde el token viaja en el header pero NO es un access token.
-     *
-     * <p>El movil no usa la cookie HttpOnly de la web: manda el refresh token en
-     * {@code Authorization: Bearer}. Si este filtro lo interpretara como access
-     * token, parseAccessToken falla y la peticion muere con 401 antes de llegar
-     * al controlador. Por eso /refresh queda fuera del filtro y es el controlador
-     * quien valida el refresh token.
-     */
-    private static final Set<String> REFRESH_ROUTES = Set.of("/api/v1/auth/refresh");
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        // /api/v1/auth/** is permitAll; the refresh flow sends a refresh token
+        // in the Authorization header (mobile) which is not an access token.
+        String path = request.getRequestURI();
+        return path.startsWith("/api/v1/auth/") || path.equals("/.well-known/jwks.json")
+            || path.equals("/api/profiles")
+            || path.startsWith("/api/profiles/");
+    }
 
     @Override
     protected void doFilterInternal(
@@ -44,11 +42,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         @NonNull HttpServletResponse response,
         @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
-
-        if (REFRESH_ROUTES.contains(request.getRequestURI())) {
-            filterChain.doFilter(request, response);
-            return;
-        }
 
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -72,7 +65,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + claims.roleId()));
+            var authorities = new ArrayList<SimpleGrantedAuthority>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + claims.roleId()));
+            if (claims.roleName() != null) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + claims.roleName()));
+            }
+            if (claims.permissions() != null) {
+                claims.permissions().forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission)));
+            }
             var auth = new UsernamePasswordAuthenticationToken(claims.profileId(), null, authorities);
             auth.setDetails(claims);
             SecurityContextHolder.getContext().setAuthentication(auth);

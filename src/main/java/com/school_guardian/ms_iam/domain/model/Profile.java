@@ -15,10 +15,8 @@ import java.util.UUID;
 public class Profile {
     private UUID id;
     private UUID personId;
+    private UUID campusId;
     private String passwordHash;
     private Role role;
     private Status status;
-
-    /** Sede del perfil. Null para admins, que se relacionan con un colegio. */
-    private UUID campusId;
 }

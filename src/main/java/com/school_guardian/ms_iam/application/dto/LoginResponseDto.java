@@ -12,6 +12,7 @@ public record LoginResponseDto(
         UUID personId,
         String email,
         Byte roleId,
-        UUID campusId
+        UUID campusId,
+        UUID schoolId
 ) {
 }

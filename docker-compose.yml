@@ -2,13 +2,17 @@ services:
   ms-iam:
     image: ms-iam.api
     container_name: ms-iam
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8080"
+      - "5001"
     env_file:
       - .env
+    environment:
+      APP_INTERNAL_API_KEY: "${APP_INTERNAL_API_KEY:?Set APP_INTERNAL_API_KEY in ms-iam/.env}"
     networks:
       - sg-services-network
 

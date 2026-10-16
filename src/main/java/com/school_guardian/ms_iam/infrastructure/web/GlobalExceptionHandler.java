@@ -3,8 +3,6 @@ package com.school_guardian.ms_iam.infrastructure.web;
 import com.school_guardian.ms_iam.application.dto.ErrorResponseDto;
 import com.school_guardian.ms_iam.application.usecase.LoginService;
 import com.school_guardian.ms_iam.application.usecase.RefreshTokenService;
-import com.school_guardian.ms_iam.domain.exception.EmailAlreadyInUseException;
-import com.school_guardian.ms_iam.domain.exception.ProfileNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -13,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -21,6 +20,12 @@ import java.util.Map;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponseDto> handleStatus(ResponseStatusException ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        return response(status, ex.getReason(), request, null);
+    }
 
     @ExceptionHandler({
         LoginService.InvalidCredentialsException.class,
@@ -37,21 +42,6 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<ErrorResponseDto> handleAccountInactive(Exception ex, HttpServletRequest request) {
         return response(HttpStatus.FORBIDDEN, ex.getMessage(), request, null);
-    }
-
-    @ExceptionHandler(ProfileNotFoundException.class)
-    public ResponseEntity<ErrorResponseDto> handleProfileNotFound(HttpServletRequest request) {
-        return response(HttpStatus.NOT_FOUND, "Profile not found", request, null);
-    }
-
-    @ExceptionHandler(EmailAlreadyInUseException.class)
-    public ResponseEntity<ErrorResponseDto> handleEmailInUse(HttpServletRequest request) {
-        return response(HttpStatus.CONFLICT, "Email already in use", request, null);
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponseDto> handleBadInput(IllegalArgumentException ex, HttpServletRequest request) {
-        return response(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(MissingRequestCookieException.class)

@@ -20,9 +20,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService implements RefreshTokenUseCase {
 
-    private static final int REFRESH_TOKEN_DAYS = 30;
-    private static final int ACCESS_TOKEN_MINUTES = 15;
-
     private final AuthenticationRepository authenticationRepository;
     private final TokenProvider tokenProvider;
 
@@ -30,13 +27,10 @@ public class RefreshTokenService implements RefreshTokenUseCase {
     public RefreshTokenUseCase.RefreshResponse execute(RefreshTokenUseCase.Refresh refresh) {
         var refreshClaims = tokenProvider.parseRefreshToken(refresh.refreshToken());
 
-        if (tokenProvider.isTokenExpired(refresh.refreshToken())) {
+        if (refreshClaims.expiresAt().isBefore(Instant.now())) {
             throw new InvalidRefreshTokenException("Refresh token expired");
         }
 
-        // refreshClaims.profileId() es el `sub` del token (Profile.Id, no Person.Id):
-        // buscar por profileId. Con findByPersonId nunca encontraba nada y el
-        // refresh fallaba con "Profile not found".
         var authData = authenticationRepository.findByProfileId(refreshClaims.profileId())
             .orElseThrow(() -> new InvalidRefreshTokenException("Profile not found"));
 
@@ -46,31 +40,22 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             throw new AccountInactiveException("Account is inactive");
         }
 
-        // schoolId se arrastra desde el refresh token en vez de volver a consultar por
-        // gRPC: el refresh es la via caliente (el interceptor lo llama en cada 401) y
-        // la relacion admin-colegio no cambia dentro de la vida de la sesion. Si el
-        // admin cambia de colegio, re-loguea.
-        UUID schoolId = refreshClaims.schoolId();
-
-        // campusId sale de la base, no del refresh token: la sede si puede cambiar
-        // durante la sesion (un estudiante se traslada de sede) y es una columna de
-        // Iam.Profile, sin gRPC de por medio.
-        UUID campusId = profile.getCampusId();
-
         String newAccessJti = UUID.randomUUID().toString();
         String newAccessToken = tokenProvider.generatedAccessToken(
-            profile.getId(), profile.getPersonId(), null,
-            profile.getRole().getId(), campusId, schoolId,
+            profile.getId(), profile.getPersonId(), authData.email,
+            profile.getRole().getId(), authData.roleName, authData.identificationNumber,
+            authData.campusId, authData.schoolId, authData.permissions,
             Map.of("jti", newAccessJti)
         );
 
         String newRefreshToken = tokenProvider.generatedRefreshToken(
-            profile.getId(), profile.getPersonId(), null,
-            profile.getRole().getId(), campusId, schoolId
+            profile.getId(), profile.getPersonId(), authData.email,
+            profile.getRole().getId(), authData.roleName, authData.identificationNumber,
+            authData.campusId, authData.schoolId
         );
 
-        Instant accessExpiresAt = Instant.now().plusSeconds(ACCESS_TOKEN_MINUTES * 60);
-        Instant refreshExpiresAt = Instant.now().plusSeconds(REFRESH_TOKEN_DAYS * 24 * 60 * 60);
+        Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
+        Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
 
         return new RefreshTokenUseCase.RefreshResponse(newAccessToken, accessExpiresAt, newRefreshToken, refreshExpiresAt);
     }
@@ -84,7 +69,6 @@ public class RefreshTokenService implements RefreshTokenUseCase {
         role.setId(data.roleId);
         profile.setRole(role);
         profile.setStatus(Status.valueOf(data.status));
-        profile.setCampusId(data.campusId);
         return profile;
     }
 

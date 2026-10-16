@@ -1,7 +1,9 @@
 package com.school_guardian.ms_iam.infrastructure.messaging;
 
 import com.school_guardian.ms_iam.domain.event.PersonCreatedEvent;
+import com.school_guardian.ms_iam.domain.event.AdminSchoolUpdatedEvent;
 import com.school_guardian.ms_iam.domain.port.in.CreateProfileUseCase;
+import com.school_guardian.ms_iam.application.usecase.UpdateAdminSchoolService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class PersonCreatedConsumer {
     private final CreateProfileUseCase createProfileUseCase;
+    private final UpdateAdminSchoolService updateAdminSchoolService;
 
     @KafkaListener(topics = "student.created", groupId = "iam")
     public void onStudent(PersonCreatedEvent event) { handle(event, "Student"); }
@@ -21,6 +24,17 @@ public class PersonCreatedConsumer {
 
     @KafkaListener(topics = "admin.created", groupId = "iam")
     public void onAdmin(PersonCreatedEvent event) { handle(event, "Admin"); }
+
+    @KafkaListener(topics = "admin.school.updated", groupId = "iam",
+            containerFactory = "adminSchoolUpdatedKafkaListenerContainerFactory")
+    public void onAdminSchoolUpdated(AdminSchoolUpdatedEvent event) {
+        try {
+            updateAdminSchoolService.execute(event.getPersonId(), event.getSchoolId());
+        } catch (Exception e) {
+            log.error("Failed to update school assignment for administrator {}: {}",
+                    event.getPersonId(), e.getMessage(), e);
+        }
+    }
 
     @KafkaListener(topics = "parent.created", groupId = "iam")
     public void onParent(PersonCreatedEvent event) { handle(event, "Parent"); }

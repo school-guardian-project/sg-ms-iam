@@ -24,20 +24,11 @@ public class ProfileEntity {
     @Column(name = "PersonId", nullable = false)
     private UUID personId;
 
-    @Column(name = "PasswordHash", nullable = false, length = 100)
-    private String passwordHash;
-
-    /**
-     * Sede del perfil. Solo aplica a student/driver/parent: un admin pertenece a
-     * un colegio, no a una sede, asi que para el rol admin queda null y la
-     * relacion vive en School.SchoolAdmin.
-     *
-     * <p>La columna ya existia en la base de datos pero la entidad no la mapeaba,
-     * por lo que la sede se perdia en cada lectura y el claim campusId del token
-     * salia siempre nulo.
-     */
     @Column(name = "CampuseId")
     private UUID campusId;
+
+    @Column(name = "PasswordHash", nullable = false, length = 100)
+    private String passwordHash;
 
     @Column(name = "RoleId", nullable = false)
     private Byte roleId;

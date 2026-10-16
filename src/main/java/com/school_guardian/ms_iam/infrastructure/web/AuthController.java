@@ -1,14 +1,16 @@
 package com.school_guardian.ms_iam.infrastructure.web;
 
-import com.school_guardian.ms_iam.application.dto.ChangePasswordRequestDto;
 import com.school_guardian.ms_iam.application.dto.LoginRequestDto;
 import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
+import com.school_guardian.ms_iam.application.dto.ProfileResponseDto;
 import com.school_guardian.ms_iam.application.dto.RefreshResponseDto;
-import com.school_guardian.ms_iam.application.dto.UserProfileDto;
-import com.school_guardian.ms_iam.domain.port.in.ChangePasswordUseCase;
+import com.school_guardian.ms_iam.application.dto.TermsAcceptanceDtos;
 import com.school_guardian.ms_iam.domain.port.in.GetProfileUseCase;
+import com.school_guardian.ms_iam.domain.port.in.GetTermsStatusUseCase;
+import com.school_guardian.ms_iam.domain.port.in.ListTermsAcceptancesUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LogoutUseCase;
+import com.school_guardian.ms_iam.domain.port.in.RecordTermsAcceptanceUseCase;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,9 +21,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "Authentication", description = "Login, token refresh, logout, profile")
+@Tag(name = "Authentication", description = "Login, token refresh, logout")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -29,7 +35,26 @@ public class AuthController {
     private final RefreshTokenUseCase refreshTokenUseCase;
     private final LogoutUseCase logoutUseCase;
     private final GetProfileUseCase getProfileUseCase;
-    private final ChangePasswordUseCase changePasswordUseCase;
+    private final RecordTermsAcceptanceUseCase recordTermsAcceptanceUseCase;
+    private final ListTermsAcceptancesUseCase listTermsAcceptancesUseCase;
+    private final GetTermsStatusUseCase getTermsStatusUseCase;
+
+    @GetMapping("/profile")
+    @Operation(summary = "Current user profile", description = "Returns the profile of the authenticated user, including role and tenant (campus/school)")
+    public ResponseEntity<ProfileResponseDto> profile(
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            var result = getProfileUseCase.execute(new GetProfileUseCase.GetProfile(accessToken));
+            return ResponseEntity.ok(result);
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+    }
 
     @PostMapping("/login")
     @Operation(summary = "User login", description = "Authenticates user by email and returns access token in body, refresh token in HttpOnly cookie")
@@ -44,7 +69,7 @@ public class AuthController {
         refreshCookie.setHttpOnly(true);
         refreshCookie.setSecure(true);
         refreshCookie.setPath("/api/v1/auth/refresh");
-        refreshCookie.setMaxAge(30 * 24 * 60 * 60);
+        refreshCookie.setMaxAge(secondsUntil(result.refreshTokenExpiresAt()));
         refreshCookie.setAttribute("SameSite", "Strict");
         response.addCookie(refreshCookie);
 
@@ -52,7 +77,7 @@ public class AuthController {
             result.accessToken(), result.accessTokenExpiresAt(),
             result.refreshToken(), result.refreshTokenExpiresAt(),
             result.profileId(), result.personId(), result.email(),
-            result.roleId(), result.campusId()
+            result.roleId(), result.campusId(), result.schoolId()
         ));
     }
 
@@ -75,7 +100,7 @@ public class AuthController {
         newRefreshCookie.setHttpOnly(true);
         newRefreshCookie.setSecure(true);
         newRefreshCookie.setPath("/api/v1/auth/refresh");
-        newRefreshCookie.setMaxAge(30 * 24 * 60 * 60);
+        newRefreshCookie.setMaxAge(secondsUntil(result.refreshTokenExpiresAt()));
         newRefreshCookie.setAttribute("SameSite", "Strict");
         response.addCookie(newRefreshCookie);
 
@@ -104,33 +129,80 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/profile")
-    @Operation(summary = "Get current user profile", description = "Returns profile data for the authenticated user from JWT claims")
-    public ResponseEntity<UserProfileDto> getProfile(
-        @RequestHeader(value = "Authorization") String authHeader
+    @GetMapping("/terms/status")
+    @Operation(summary = "My terms coverage status", description = "Tells whether the authenticated profile is covered by the current terms version, either by own acceptance or by a parent authorization (minors)")
+    public ResponseEntity<GetTermsStatusUseCase.TermsStatus> termsStatus(
+        @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         String accessToken = extractToken(authHeader);
         if (accessToken == null) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         }
-        
-        UserProfileDto profile = getProfileUseCase.execute(accessToken);
-        return ResponseEntity.ok(profile);
+        try {
+            var result = getTermsStatusUseCase.execute(new GetTermsStatusUseCase.GetTermsStatus(accessToken));
+            return ResponseEntity.ok(result);
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
     }
 
-    @PostMapping("/change-password")
-    @Operation(summary = "Change user password", description = "Changes the password for the authenticated user")
-    public ResponseEntity<Void> changePassword(
-        @RequestHeader(value = "Authorization") String authHeader,
-        @Valid @RequestBody ChangePasswordRequestDto request
+    @GetMapping("/terms/acceptances")
+    @Operation(summary = "List my terms acceptances", description = "Returns the append-only acceptance history of the authenticated profile, latest first")
+    public ResponseEntity<List<TermsAcceptanceDtos.AcceptanceResponse>> acceptances(
+        @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         String accessToken = extractToken(authHeader);
         if (accessToken == null) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         }
-        
-        changePasswordUseCase.execute(accessToken, request);
-        return ResponseEntity.noContent().build();
+        try {
+            var result = listTermsAcceptancesUseCase.execute(new ListTermsAcceptancesUseCase.ListTermsAcceptances(accessToken));
+            return ResponseEntity.ok(result.stream()
+                .map(acceptance -> new TermsAcceptanceDtos.AcceptanceResponse(
+                    acceptance.getId(), acceptance.getProfileId(), acceptance.getStudentProfileId(),
+                    acceptance.getTermsVersion(), acceptance.getAcceptedAt(), acceptance.getChannel()))
+                .toList());
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    @PostMapping("/terms/accept")
+    @Operation(summary = "Record terms acceptance", description = "Records acceptance of a terms version for the authenticated profile, optionally on behalf of student profiles (minors)")
+    public ResponseEntity<List<TermsAcceptanceDtos.AcceptanceResponse>> acceptTerms(
+        @RequestHeader(value = "Authorization", required = false) String authHeader,
+        @Valid @RequestBody TermsAcceptanceDtos.AcceptTermsRequest request,
+        jakarta.servlet.http.HttpServletRequest httpRequest
+    ) {
+        String accessToken = extractToken(authHeader);
+        if (accessToken == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            var command = new RecordTermsAcceptanceUseCase.RecordTermsAcceptance(
+                accessToken, request.termsVersion(), request.studentProfileIds(),
+                httpRequest.getRemoteAddr(), "mobile");
+            var ids = recordTermsAcceptanceUseCase.execute(command);
+            var result = listTermsAcceptancesUseCase.execute(new ListTermsAcceptancesUseCase.ListTermsAcceptances(accessToken));
+            var recorded = new java.util.HashSet<>(ids);
+            return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(result.stream()
+                .filter(acceptance -> recorded.contains(acceptance.getId()))
+                .map(acceptance -> new TermsAcceptanceDtos.AcceptanceResponse(
+                    acceptance.getId(), acceptance.getProfileId(), acceptance.getStudentProfileId(),
+                    acceptance.getTermsVersion(), acceptance.getAcceptedAt(), acceptance.getChannel()))
+                .toList());
+        } catch (GetProfileUseCase.InvalidTokenException e) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+    }
+
+    /**
+     * Remaining lifetime of the refresh cookie, taken from the expiry the use case
+     * reported so the cookie never outlives the refresh token it carries.
+     */
+    private static int secondsUntil(Instant expiresAt) {
+        long seconds = Duration.between(Instant.now(), expiresAt).getSeconds();
+        return (int) Math.max(seconds, 0);
     }
 
     private String extractToken(String authHeader) {

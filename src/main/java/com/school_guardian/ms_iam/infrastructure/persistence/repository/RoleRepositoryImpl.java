@@ -27,18 +27,4 @@ public class RoleRepositoryImpl implements RoleRepository {
 
         return role;
     }
-
-    @Override
-    public Role findById(Byte id) {
-        RoleEntity entity = roleJpaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Role not found with id: " + id));
-
-        Role role = new Role();
-        role.setId(entity.getId());
-        role.setName(entity.getName());
-        role.setDescription(entity.getDescription());
-        role.setStatus(Status.valueOf(entity.getStatus()));
-
-        return role;
-    }
 }

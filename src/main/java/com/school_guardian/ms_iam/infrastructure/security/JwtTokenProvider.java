@@ -4,41 +4,64 @@ import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Issues and verifies JWTs using RS256 (asymmetric RSA).
+ *
+ * <p>Access and refresh tokens are signed with the IAM private key. The matching
+ * public key is published through the JWKS endpoint so the API gateway (Kong)
+ * can validate tokens without sharing any secret with the services.</p>
+ */
 @Component
 public class JwtTokenProvider implements TokenProvider {
 
-    private final SecretKey secretKey;
+    private final PrivateKey privateKey;
+    private final PublicKey publicKey;
+    private final String keyId;
+    private final String issuer;
+    private final String audience;
     private final long accessTokenExpirationMinutes;
     private final long refreshTokenExpirationDays;
 
     public JwtTokenProvider(
-        @Value("${app.jwt.secret}") String secret,
-        @Value("${app.jwt.access-token-expiration-minutes:15}") long accessTokenExpirationMinutes,
-        @Value("${app.jwt.refresh-token-expiration-days:30}") long refreshTokenExpirationDays
+        RsaKeyProvider keyProvider,
+        @Value("${app.jwt.issuer:school-guardian-iam}") String issuer,
+        @Value("${app.jwt.audience:school-guardian-api}") String audience,
+        @Value("${app.jwt.access-token-expiration-minutes:60}") long accessTokenExpirationMinutes,
+        @Value("${app.jwt.refresh-token-expiration-days:7}") long refreshTokenExpirationDays
     ) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.privateKey = keyProvider.getPrivateKey();
+        this.publicKey = keyProvider.getPublicKey();
+        this.keyId = keyProvider.getKeyId();
+        this.issuer = issuer;
+        this.audience = audience;
         this.accessTokenExpirationMinutes = accessTokenExpirationMinutes;
         this.refreshTokenExpirationDays = refreshTokenExpirationDays;
     }
 
     @Override
-    public String generatedAccessToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId, Map<String, Object> extractClaims) {
+    public String generatedAccessToken(UUID profileId, UUID personId, String email, Byte roleId, String roleName,
+                                       String identificationNumber, UUID campusId, UUID schoolId,
+                                       List<String> permissions, Map<String, Object> extractClaims) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(accessTokenExpirationMinutes * 60);
         String jti = (String) extractClaims.getOrDefault("jti", UUID.randomUUID().toString());
 
         var builder = Jwts.builder()
+            .header().keyId(keyId).and()
+            .issuer(issuer)
+            .audience().add(audience).and()
             .subject(profileId.toString())
             .claim("personId", personId.toString())
             .claim("roleId", roleId)
@@ -48,19 +71,25 @@ public class JwtTokenProvider implements TokenProvider {
             .expiration(Date.from(expiry));
 
         if (email != null) builder.claim("email", email);
+        if (roleName != null) builder.claim("role", roleName);
+        if (identificationNumber != null) builder.claim("documentNumber", identificationNumber);
         if (campusId != null) builder.claim("campusId", campusId.toString());
-        // Claims opcionales: solo se emiten si existen. schoolId solo aplica a admins.
         if (schoolId != null) builder.claim("schoolId", schoolId.toString());
+        builder.claim("permissions", permissions != null ? permissions : List.of());
 
-        return builder.signWith(secretKey).compact();
+        return builder.signWith(privateKey, Jwts.SIG.RS256).compact();
     }
 
     @Override
-    public String generatedRefreshToken(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId) {
+    public String generatedRefreshToken(UUID profileId, UUID personId, String email, Byte roleId, String roleName,
+                                        String identificationNumber, UUID campusId, UUID schoolId) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(refreshTokenExpirationDays * 24 * 60 * 60);
 
         var builder = Jwts.builder()
+            .header().keyId(keyId).and()
+            .issuer(issuer)
+            .audience().add(audience).and()
             .subject(profileId.toString())
             .claim("personId", personId.toString())
             .claim("roleId", roleId)
@@ -69,10 +98,12 @@ public class JwtTokenProvider implements TokenProvider {
             .expiration(Date.from(expiry));
 
         if (email != null) builder.claim("email", email);
+        if (roleName != null) builder.claim("role", roleName);
+        if (identificationNumber != null) builder.claim("documentNumber", identificationNumber);
         if (campusId != null) builder.claim("campusId", campusId.toString());
         if (schoolId != null) builder.claim("schoolId", schoolId.toString());
 
-        return builder.signWith(secretKey).compact();
+        return builder.signWith(privateKey, Jwts.SIG.RS256).compact();
     }
 
     @Override
@@ -81,13 +112,17 @@ public class JwtTokenProvider implements TokenProvider {
         if (!"access".equals(claims.get("type"))) {
             throw new JwtException("Not an access token");
         }
+        List<String> permissions = claims.get("permissions", List.class);
         return new TokenClaims(
             UUID.fromString(claims.getSubject()),
             UUID.fromString(claims.get("personId", String.class)),
             claims.get("email", String.class),
             claims.get("roleId", Byte.class),
+            claims.get("role", String.class),
+            claims.get("documentNumber", String.class),
             claims.get("campusId") != null ? UUID.fromString(claims.get("campusId", String.class)) : null,
             claims.get("schoolId") != null ? UUID.fromString(claims.get("schoolId", String.class)) : null,
+            permissions != null ? permissions : List.of(),
             claims.get("jti", String.class),
             claims.getIssuedAt().toInstant(),
             claims.getExpiration().toInstant(),
@@ -115,7 +150,9 @@ public class JwtTokenProvider implements TokenProvider {
 
     private Claims parse(String token) {
         return Jwts.parser()
-            .verifyWith(secretKey)
+            .verifyWith(publicKey)
+            .requireIssuer(issuer)
+            .requireAudience(audience)
             .build()
             .parseSignedClaims(token)
             .getPayload();
@@ -134,13 +171,19 @@ public class JwtTokenProvider implements TokenProvider {
     @Override
     public boolean isTokenExpired(String token) {
         try {
-            // Se lee el claim exp del token tal cual, sin asumir que sea de tipo
-            // access: este metodo tambien se usa sobre refresh tokens, y parsear
-            // con parseAccessToken lanzaria "Not an access token" y haria que todo
-            // refresh pareciera expirado.
-            return parse(token).getExpiration().toInstant().isBefore(Instant.now());
+            return extractExpiration(token).isBefore(Instant.now());
         } catch (JwtException e) {
             return true;
         }
+    }
+
+    @Override
+    public Duration accessTokenValidity() {
+        return Duration.ofMinutes(accessTokenExpirationMinutes);
+    }
+
+    @Override
+    public Duration refreshTokenValidity() {
+        return Duration.ofDays(refreshTokenExpirationDays);
     }
 }
