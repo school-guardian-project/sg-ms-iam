@@ -21,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 @RestController
@@ -67,7 +69,7 @@ public class AuthController {
         refreshCookie.setHttpOnly(true);
         refreshCookie.setSecure(true);
         refreshCookie.setPath("/api/v1/auth/refresh");
-        refreshCookie.setMaxAge(30 * 24 * 60 * 60);
+        refreshCookie.setMaxAge(secondsUntil(result.refreshTokenExpiresAt()));
         refreshCookie.setAttribute("SameSite", "Strict");
         response.addCookie(refreshCookie);
 
@@ -98,7 +100,7 @@ public class AuthController {
         newRefreshCookie.setHttpOnly(true);
         newRefreshCookie.setSecure(true);
         newRefreshCookie.setPath("/api/v1/auth/refresh");
-        newRefreshCookie.setMaxAge(30 * 24 * 60 * 60);
+        newRefreshCookie.setMaxAge(secondsUntil(result.refreshTokenExpiresAt()));
         newRefreshCookie.setAttribute("SameSite", "Strict");
         response.addCookie(newRefreshCookie);
 
@@ -192,6 +194,15 @@ public class AuthController {
         } catch (GetProfileUseCase.InvalidTokenException e) {
             return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
         }
+    }
+
+    /**
+     * Remaining lifetime of the refresh cookie, taken from the expiry the use case
+     * reported so the cookie never outlives the refresh token it carries.
+     */
+    private static int secondsUntil(Instant expiresAt) {
+        long seconds = Duration.between(Instant.now(), expiresAt).getSeconds();
+        return (int) Math.max(seconds, 0);
     }
 
     private String extractToken(String authHeader) {
