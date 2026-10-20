@@ -1,5 +1,6 @@
 package com.school_guardian.ms_iam.application.usecase;
 
+import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.domain.model.Profile;
 import com.school_guardian.ms_iam.domain.model.Role;
