@@ -18,7 +18,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 @Slf4j
 @Service
