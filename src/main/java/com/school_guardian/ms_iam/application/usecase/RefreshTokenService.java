@@ -69,7 +69,7 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             if (session.isPresent()) {
                 var existing = session.get();
                 existing.setDateEnd(Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60));
-                existing.setStatusSession("Active"));
+                existing.setStatusSession("Active");
                 sessionProfileRepository.save(existing);
             }
         } catch (Exception e) {
