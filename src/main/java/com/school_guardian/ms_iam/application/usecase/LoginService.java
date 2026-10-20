@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Slf4j
 @Service
