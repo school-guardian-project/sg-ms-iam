@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -37,8 +38,8 @@ public class JwtTokenProvider implements TokenProvider {
         RsaKeyProvider keyProvider,
         @Value("${app.jwt.issuer:school-guardian-iam}") String issuer,
         @Value("${app.jwt.audience:school-guardian-api}") String audience,
-        @Value("${app.jwt.access-token-expiration-minutes:15}") long accessTokenExpirationMinutes,
-        @Value("${app.jwt.refresh-token-expiration-days:30}") long refreshTokenExpirationDays
+        @Value("${app.jwt.access-token-expiration-minutes:60}") long accessTokenExpirationMinutes,
+        @Value("${app.jwt.refresh-token-expiration-days:7}") long refreshTokenExpirationDays
     ) {
         this.privateKey = keyProvider.getPrivateKey();
         this.publicKey = keyProvider.getPublicKey();
@@ -174,5 +175,15 @@ public class JwtTokenProvider implements TokenProvider {
         } catch (JwtException e) {
             return true;
         }
+    }
+
+    @Override
+    public Duration accessTokenValidity() {
+        return Duration.ofMinutes(accessTokenExpirationMinutes);
+    }
+
+    @Override
+    public Duration refreshTokenValidity() {
+        return Duration.ofDays(refreshTokenExpirationDays);
     }
 }
