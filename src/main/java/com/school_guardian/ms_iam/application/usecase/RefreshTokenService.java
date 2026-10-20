@@ -20,6 +20,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService implements RefreshTokenUseCase {
 
+    private static final long ACCESS_TOKEN_EXPIRATION_MINUTES = 60L;
+    private static final long REFRESH_TOKEN_EXPIRATION_DAYS = 7L;
+
+    private final SessionProfileJpaRepository sessionProfileRepository;
+
+
     private final AuthenticationRepository authenticationRepository;
     private final TokenProvider tokenProvider;
 
@@ -54,8 +60,21 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             authData.campusId, authData.schoolId
         );
 
-        Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
-        Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
+        Instant accessExpiresAt = Instant.now().plusSeconds(ACCESS_TOKEN_EXPIRATION_MINUTES * 60);
+        Instant refreshExpiresAt = Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60);
+
+        // Update SessionProfile when refresh token is used
+        try {
+            var session = sessionProfileRepository.findByProfileId(authData.profileId);
+            if (session.isPresent()) {
+                var existing = session.get();
+                existing.setDateEnd(Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60));
+                existing.setStatusSession("Active"));
+                sessionProfileRepository.save(existing);
+            }
+        } catch (Exception e) {
+            log.debug("Could not update session profile: {}", e.getMessage());
+        }
 
         return new RefreshTokenUseCase.RefreshResponse(newAccessToken, accessExpiresAt, newRefreshToken, refreshExpiresAt);
     }

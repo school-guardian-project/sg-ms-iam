@@ -7,24 +7,31 @@ import com.school_guardian.ms_iam.domain.model.Role;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
+import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.shared.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import javax.servlet.http.HttpServletRequest;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class LoginService implements LoginUseCase {
 
+    private static final long ACCESS_TOKEN_EXPIRATION_MINUTES = 60L;
+    private static final long REFRESH_TOKEN_EXPIRATION_DAYS = 7L;
+
     private final AuthenticationRepository authenticationRepository;
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
+    private final SessionProfileJpaRepository sessionProfileRepository;
 
     @Override
     public LoginResponseDto execute(Login login) {
@@ -49,12 +56,33 @@ public class LoginService implements LoginUseCase {
 
         log.info("login exitoso email={}", authData.email);
 
-        String accessTokenJti = UUID.randomUUID().toString();
+        // Get client IP address
+        String ipAddress = "127.0.0.1";
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
+            HttpServletRequest request = attributes.getRequest();
+            if (request != null) {
+                ipAddress = request.getRemoteAddr();
+            }
+        } catch (Exception e) {
+            log.debug("Could not obtain client IP: {}", e.getMessage());
+        }
+
+        // Create SessionProfile record
+        sessionProfileRepository.save(new SessionProfileEntity(
+            1,  // ID will be auto-incremented; using 1 as placeholder
+            profile.getId(),
+            Instant.now(),
+            Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60),
+            ipAddress,
+            "Active"
+        ));
+
         String accessToken = tokenProvider.generatedAccessToken(
             profile.getId(), profile.getPersonId(), authData.email,
             profile.getRole().getId(), authData.roleName, authData.identificationNumber,
             authData.campusId, authData.schoolId, authData.permissions,
-            Map.of("jti", accessTokenJti)
+            Map.of("type", "access")
         );
 
         String refreshToken = tokenProvider.generatedRefreshToken(
@@ -63,12 +91,9 @@ public class LoginService implements LoginUseCase {
             authData.campusId, authData.schoolId
         );
 
-        Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
-        Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
-
         return new LoginResponseDto(
-            accessToken, accessExpiresAt,
-            refreshToken, refreshExpiresAt,
+            accessToken, ACCESS_TOKEN_EXPIRATION_MINUTES,
+            refreshToken, REFRESH_TOKEN_EXPIRATION_DAYS,
             profile.getId(), profile.getPersonId(), authData.email,
             profile.getRole().getId(), authData.campusId, authData.schoolId
         );
