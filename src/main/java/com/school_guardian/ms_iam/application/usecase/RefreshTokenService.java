@@ -67,11 +67,10 @@ public class RefreshTokenService implements RefreshTokenUseCase {
         // Update SessionProfile when refresh token is used
         try {
             var session = sessionProfileRepository.findByProfileId(authData.profileId);
-            if (session.isPresent()) {
-                var existing = session.get();
-                existing.setDateEnd(Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60));
-                existing.setStatusSession("Active");
-                sessionProfileRepository.save(existing);
+            if (session != null) {
+                session.setDateEnd(refreshExpiresAt);
+                session.setStatusSession("Active");
+                sessionProfileRepository.save(session);
             }
         } catch (Exception e) {
             log.debug("Could not update session profile: {}", e.getMessage());
