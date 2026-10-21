@@ -1,12 +1,12 @@
 package com.school_guardian.ms_iam.application.usecase;
 
-import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.domain.model.Profile;
 import com.school_guardian.ms_iam.domain.model.Role;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
+import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.shared.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,13 +21,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService implements RefreshTokenUseCase {
 
-    private static final long ACCESS_TOKEN_EXPIRATION_MINUTES = 60L;
-    private static final long REFRESH_TOKEN_EXPIRATION_DAYS = 7L;
-
-    private final SessionProfileJpaRepository sessionProfileRepository;
-
-
     private final AuthenticationRepository authenticationRepository;
+    private final SessionProfileJpaRepository sessionProfileRepository;
     private final TokenProvider tokenProvider;
 
     @Override
@@ -61,19 +56,22 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             authData.campusId, authData.schoolId
         );
 
-        Instant accessExpiresAt = Instant.now().plusSeconds(ACCESS_TOKEN_EXPIRATION_MINUTES * 60);
-        Instant refreshExpiresAt = Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60);
+        // Same source as the one embedded in the tokens (TokenProvider <- app.jwt.*).
+        Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
+        Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
 
-        // Update SessionProfile when refresh token is used
+        // SessionProfile holds one row per login, so the session to extend is the newest
+        // one for this profile (findByProfileId would throw once a second row exists).
         try {
-            var session = sessionProfileRepository.findByProfileId(authData.profileId);
+            var session = sessionProfileRepository.findFirstByProfileIdOrderByIdDesc(authData.profileId);
             if (session != null) {
                 session.setDateEnd(refreshExpiresAt);
                 session.setStatusSession("Active");
                 sessionProfileRepository.save(session);
             }
         } catch (Exception e) {
-            log.debug("Could not update session profile: {}", e.getMessage());
+            log.warn("No se pudo actualizar el SessionProfile del perfil {}: {}",
+                authData.profileId, e.getMessage());
         }
 
         return new RefreshTokenUseCase.RefreshResponse(newAccessToken, accessExpiresAt, newRefreshToken, refreshExpiresAt);

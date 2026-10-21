@@ -10,26 +10,21 @@ import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.shared.Status;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class LoginService implements LoginUseCase {
-
-    private static final long ACCESS_TOKEN_EXPIRATION_MINUTES = 60L;
-    private static final long REFRESH_TOKEN_EXPIRATION_DAYS = 7L;
 
     private final AuthenticationRepository authenticationRepository;
     private final PasswordEncoder passwordEncoder;
@@ -71,19 +66,6 @@ public class LoginService implements LoginUseCase {
             log.debug("Could not obtain client IP: {}", e.getMessage());
         }
 
-        // Create SessionProfile record
-        SessionProfileEntity session = new SessionProfileEntity();
-
-        session.setProfileId(authData.profileId);
-        session.setDateStart(Instant.now());
-        session.setDateEnd(
-            Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60)
-        );
-        session.setIpAddress(ipAddress);
-        session.setStatusSession("Active");
-        
-        sessionProfileRepository.save(session);
-
         String accessToken = tokenProvider.generatedAccessToken(
             profile.getId(), profile.getPersonId(), authData.email,
             profile.getRole().getId(), authData.roleName, authData.identificationNumber,
@@ -97,9 +79,25 @@ public class LoginService implements LoginUseCase {
             authData.campusId, authData.schoolId
         );
 
+        // The expiries reported to the caller must match the ones embedded in the JWTs,
+        // so both are taken from the same source (TokenProvider <- app.jwt.*).
+        Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
+        Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
+
+        // SessionProfile is history: a row is appended per login and never reuses Id.
+        // Id is IDENTITY in the database (Iam.SessionProfile.Id INT IDENTITY), so it is
+        // left unset here and filled by the insert.
+        SessionProfileEntity session = new SessionProfileEntity();
+        session.setProfileId(profile.getId());
+        session.setDateStart(Instant.now());
+        session.setDateEnd(refreshExpiresAt);
+        session.setIpAddress(ipAddress);
+        session.setStatusSession("Active");
+        sessionProfileRepository.save(session);
+
         return new LoginResponseDto(
-            accessToken, ACCESS_TOKEN_EXPIRATION_MINUTES,
-            refreshToken, REFRESH_TOKEN_EXPIRATION_DAYS,
+            accessToken, accessExpiresAt,
+            refreshToken, refreshExpiresAt,
             profile.getId(), profile.getPersonId(), authData.email,
             profile.getRole().getId(), authData.campusId, authData.schoolId
         );
