@@ -19,6 +19,8 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Slf4j
@@ -71,7 +73,7 @@ public class LoginService implements LoginUseCase {
 
         // Create SessionProfile record
         sessionProfileRepository.save(new SessionProfileEntity(
-            1,  // ID will be auto-incremented; using 1 as placeholder
+            0,  // ID will be auto-incremented; using 1 as placeholder
             authData.profileId,
             Instant.now(),
             Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60),
