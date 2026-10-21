@@ -21,6 +21,7 @@ import java.util.UUID;
 public class SessionProfileEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
     @Column(name = "ProfileID", nullable = false)
