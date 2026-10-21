@@ -72,14 +72,17 @@ public class LoginService implements LoginUseCase {
         }
 
         // Create SessionProfile record
-        sessionProfileRepository.save(new SessionProfileEntity(
-            0,  // ID will be auto-incremented; using 1 as placeholder
-            authData.profileId,
-            Instant.now(),
-            Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60),
-            ipAddress,
-            "Active"
-        ));
+        SessionProfileEntity session = new SessionProfileEntity();
+
+        session.setProfileId(authData.profileId);
+        session.setDateStart(Instant.now());
+        session.setDateEnd(
+            Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60)
+        );
+        session.setIpAddress(ipAddress);
+        session.setStatusSession("Active");
+        
+        sessionProfileRepository.save(session);
 
         String accessToken = tokenProvider.generatedAccessToken(
             profile.getId(), profile.getPersonId(), authData.email,
