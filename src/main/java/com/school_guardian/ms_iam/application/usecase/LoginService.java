@@ -72,7 +72,7 @@ public class LoginService implements LoginUseCase {
         // Create SessionProfile record
         sessionProfileRepository.save(new SessionProfileEntity(
             1,  // ID will be auto-incremented; using 1 as placeholder
-            profile.getId(),
+            authData.profileId,
             Instant.now(),
             Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60),
             ipAddress,
