@@ -4,6 +4,7 @@ import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
+import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -27,8 +28,10 @@ import static org.mockito.Mockito.*;
 class RefreshTokenServiceTest {
 
     private final AuthenticationRepository authenticationRepository = mock(AuthenticationRepository.class);
+    private final SessionProfileJpaRepository sessionProfileRepository = mock(SessionProfileJpaRepository.class);
     private final TokenProvider tokenProvider = mock(TokenProvider.class);
-    private final RefreshTokenService service = new RefreshTokenService(authenticationRepository, tokenProvider);
+    private final RefreshTokenService service =
+        new RefreshTokenService(authenticationRepository, sessionProfileRepository, tokenProvider);
 
     private final UUID profileId = UUID.randomUUID();
     private final UUID personId = UUID.randomUUID();
