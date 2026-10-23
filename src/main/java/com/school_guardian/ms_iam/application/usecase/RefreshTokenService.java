@@ -1,8 +1,7 @@
 package com.school_guardian.ms_iam.application.usecase;
 
-import com.school_guardian.ms_iam.application.dto.AuthenticationData;
+import com.school_guardian.ms_iam.application.mapper.ProfileAuthMapper;
 import com.school_guardian.ms_iam.domain.model.Profile;
-import com.school_guardian.ms_iam.domain.model.Role;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
@@ -36,7 +35,7 @@ public class RefreshTokenService implements RefreshTokenUseCase {
         var authData = authenticationRepository.findByProfileId(refreshClaims.profileId())
             .orElseThrow(() -> new InvalidRefreshTokenException("Profile not found"));
 
-        Profile profile = toProfile(authData);
+        Profile profile = ProfileAuthMapper.toProfile(authData);
 
         if (profile.getStatus() != Status.Active) {
             throw new AccountInactiveException("Account is inactive");
@@ -75,18 +74,6 @@ public class RefreshTokenService implements RefreshTokenUseCase {
         }
 
         return new RefreshTokenUseCase.RefreshResponse(newAccessToken, accessExpiresAt, newRefreshToken, refreshExpiresAt);
-    }
-
-    private Profile toProfile(AuthenticationData data) {
-        Profile profile = new Profile();
-        profile.setId(data.profileId);
-        profile.setPersonId(data.personId);
-        profile.setPasswordHash(data.passwordHash);
-        Role role = new Role();
-        role.setId(data.roleId);
-        profile.setRole(role);
-        profile.setStatus(Status.valueOf(data.status));
-        return profile;
     }
 
     public static class InvalidRefreshTokenException extends RuntimeException {

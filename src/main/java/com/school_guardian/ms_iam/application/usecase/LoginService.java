@@ -2,8 +2,8 @@ package com.school_guardian.ms_iam.application.usecase;
 
 import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
+import com.school_guardian.ms_iam.application.mapper.ProfileAuthMapper;
 import com.school_guardian.ms_iam.domain.model.Profile;
-import com.school_guardian.ms_iam.domain.model.Role;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
@@ -40,7 +40,7 @@ public class LoginService implements LoginUseCase {
         }
         AuthenticationData authData = found.get();
 
-        Profile profile = toProfile(authData);
+        Profile profile = ProfileAuthMapper.toProfile(authData);
 
         if (!passwordEncoder.matches(login.password(), profile.getPasswordHash())) {
             log.info("login fallido email={} motivo=contrasena-invalida", login.email());
@@ -101,18 +101,6 @@ public class LoginService implements LoginUseCase {
             profile.getId(), profile.getPersonId(), authData.email,
             profile.getRole().getId(), authData.campusId, authData.schoolId
         );
-    }
-
-    private Profile toProfile(AuthenticationData data) {
-        Profile profile = new Profile();
-        profile.setId(data.profileId);
-        profile.setPersonId(data.personId);
-        profile.setPasswordHash(data.passwordHash);
-        Role role = new Role();
-        role.setId(data.roleId);
-        profile.setRole(role);
-        profile.setStatus(Status.valueOf(data.status));
-        return profile;
     }
 
     public static class InvalidCredentialsException extends RuntimeException {
