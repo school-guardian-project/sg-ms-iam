@@ -31,5 +31,6 @@ public interface TokenProvider {
                        String identificationNumber, UUID campusId, UUID schoolId,
                        List<String> permissions, String jti, Instant issuedAt, Instant expiresAt,
                        Map<String, Object> extraClaims) {}
-    record RefreshClaims(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId, Instant issuedAt, Instant expiresAt) {}
+    record RefreshClaims(UUID profileId, UUID personId, String email, Byte roleId, UUID campusId, UUID schoolId,
+                         String jti, Instant issuedAt, Instant expiresAt) {}
 }

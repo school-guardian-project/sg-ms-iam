@@ -38,7 +38,7 @@ public class JwtTokenProvider implements TokenProvider {
         RsaKeyProvider keyProvider,
         @Value("${app.jwt.issuer:school-guardian-iam}") String issuer,
         @Value("${app.jwt.audience:school-guardian-api}") String audience,
-        @Value("${app.jwt.access-token-expiration-minutes:60}") long accessTokenExpirationMinutes,
+        @Value("${app.jwt.access-token-expiration-minutes:15}") long accessTokenExpirationMinutes,
         @Value("${app.jwt.refresh-token-expiration-days:7}") long refreshTokenExpirationDays
     ) {
         this.privateKey = keyProvider.getPrivateKey();
@@ -94,6 +94,9 @@ public class JwtTokenProvider implements TokenProvider {
             .claim("personId", personId.toString())
             .claim("roleId", roleId)
             .claim("type", "refresh")
+            // A refresh token needs its own unique id: rotation hashes the token and
+            // two tokens issued within the same second would otherwise be identical.
+            .claim("jti", UUID.randomUUID().toString())
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiry));
 
@@ -143,6 +146,7 @@ public class JwtTokenProvider implements TokenProvider {
             claims.get("roleId", Byte.class),
             claims.get("campusId") != null ? UUID.fromString(claims.get("campusId", String.class)) : null,
             claims.get("schoolId") != null ? UUID.fromString(claims.get("schoolId", String.class)) : null,
+            claims.get("jti", String.class),
             claims.getIssuedAt().toInstant(),
             claims.getExpiration().toInstant()
         );

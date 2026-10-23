@@ -6,7 +6,8 @@ spring.jpa.properties.hibernate.default_schema=Iam
 
 spring.jpa.hibernate.naming.physical-strategy=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
 
-# Token lifetimes (FR-2.2 / HU-IAM-001): access token 1 hour, refresh token 7 days.
+# Token lifetimes (FR-2.2 / HU-IAM-001): access token 15 minutes, refresh token 7 days.
 # The login and refresh use cases and the issued JWTs all read these same keys.
-app.jwt.access-token-expiration-minutes=60
+# Decision 5: the access-token TTL is the maximum exposure window after logout.
+app.jwt.access-token-expiration-minutes=${JWT_ACCESS_TOKEN_EXPIRATION_MINUTES:15}
 app.jwt.refresh-token-expiration-days=7

@@ -90,10 +90,15 @@ public class AuthController {
     @Operation(summary = "Logout", description = "Revokes access token and clears refresh token cookie")
     public ResponseEntity<Void> logout(
         @RequestHeader(value = "Authorization", required = false) String authHeader,
+        @RequestHeader(value = "X-Refresh-Token", required = false) String refreshHeader,
+        @CookieValue(value = "refresh_token", required = false) String cookieToken,
         HttpServletResponse response
     ) {
         String accessToken = BearerTokenSupport.extract(authHeader);
-        logoutUseCase.execute(new LogoutUseCase.Logout(accessToken));
+        // Browsers send the HttpOnly cookie; native clients send the header so the
+        // session family can be revoked outside a browser context too.
+        String refreshToken = cookieToken != null ? cookieToken : refreshHeader;
+        logoutUseCase.execute(new LogoutUseCase.Logout(accessToken, refreshToken));
 
         RefreshCookieSupport.clearRefreshCookie(response);
 

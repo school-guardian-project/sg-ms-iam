@@ -5,6 +5,9 @@ import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
+import com.school_guardian.ms_iam.infrastructure.persistence.repository.RefreshTokenJpaRepository;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -34,8 +37,10 @@ class LoginServiceTest {
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
     private final TokenProvider tokenProvider = mock(TokenProvider.class);
     private final SessionProfileJpaRepository sessionProfileRepository = mock(SessionProfileJpaRepository.class);
+    private final RefreshTokenJpaRepository refreshTokenRepository = mock(RefreshTokenJpaRepository.class);
     private final LoginService service =
-        new LoginService(authenticationRepository, passwordEncoder, tokenProvider, sessionProfileRepository);
+        new LoginService(authenticationRepository, passwordEncoder, tokenProvider,
+            sessionProfileRepository, refreshTokenRepository);
 
     private final UUID profileId = UUID.randomUUID();
     private final UUID personId = UUID.randomUUID();
@@ -61,8 +66,13 @@ class LoginServiceTest {
     private void expectValidCredentialsForActiveAccount() {
         when(authenticationRepository.findByEmail("ana@school.edu")).thenReturn(Optional.of(accountWithStatus("Active")));
         when(passwordEncoder.matches("secret", "hashed")).thenReturn(true);
-        when(tokenProvider.accessTokenValidity()).thenReturn(Duration.ofMinutes(60));
+        when(tokenProvider.accessTokenValidity()).thenReturn(Duration.ofMinutes(15));
         when(tokenProvider.refreshTokenValidity()).thenReturn(Duration.ofDays(7));
+        when(sessionProfileRepository.save(any(SessionProfileEntity.class))).thenAnswer(invocation -> {
+            SessionProfileEntity session = invocation.getArgument(0);
+            session.setId(7);
+            return session;
+        });
         when(tokenProvider.generatedAccessToken(any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
             .thenReturn("access-token");
         when(tokenProvider.generatedRefreshToken(any(), any(), any(), any(), any(), any(), any(), any()))
@@ -83,6 +93,8 @@ class LoginServiceTest {
         assertEquals((byte) 2, response.roleId());
         assertEquals(campusId, response.campusId());
         assertEquals(schoolId, response.schoolId());
+
+        verify(refreshTokenRepository).save(any(RefreshTokenEntity.class));
     }
 
     @Test
@@ -96,8 +108,8 @@ class LoginServiceTest {
 
         long accessMinutes = Duration.between(Instant.now(), response.accessTokenExpiresAt()).toMinutes();
         long refreshDays = Duration.between(Instant.now(), response.refreshTokenExpiresAt()).toDays();
-        assertTrue(accessMinutes >= 59 && accessMinutes <= 60,
-            "access token should live the configured 60 minutes, was " + accessMinutes + " min");
+        assertTrue(accessMinutes >= 14 && accessMinutes <= 15,
+            "access token should live the configured 15 minutes, was " + accessMinutes + " min");
         assertTrue(refreshDays >= 6 && refreshDays <= 7,
             "refresh token should live the configured 7 days, was " + refreshDays + " d");
     }

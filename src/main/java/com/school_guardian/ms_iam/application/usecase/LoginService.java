@@ -7,14 +7,18 @@ import com.school_guardian.ms_iam.domain.model.Profile;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
+import com.school_guardian.ms_iam.infrastructure.persistence.repository.RefreshTokenJpaRepository;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
+import com.school_guardian.ms_iam.infrastructure.security.RefreshTokenHasher;
 import com.school_guardian.ms_iam.shared.Status;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -30,8 +34,10 @@ public class LoginService implements LoginUseCase {
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
     private final SessionProfileJpaRepository sessionProfileRepository;
+    private final RefreshTokenJpaRepository refreshTokenRepository;
 
     @Override
+    @Transactional
     public LoginResponseDto execute(Login login) {
         var found = authenticationRepository.findByEmail(login.email());
         if (found.isEmpty()) {
@@ -93,7 +99,16 @@ public class LoginService implements LoginUseCase {
         session.setDateEnd(refreshExpiresAt);
         session.setIpAddress(ipAddress);
         session.setStatusSession("Active");
-        sessionProfileRepository.save(session);
+        session = sessionProfileRepository.save(session);
+
+        // The refresh token row is the root of the session family. Rotation and
+        // reuse detection rely on it, so it is created in the same login flow.
+        RefreshTokenEntity refreshTokenRow = new RefreshTokenEntity();
+        refreshTokenRow.setSessionProfileId(session.getId());
+        refreshTokenRow.setTokenHash(RefreshTokenHasher.sha256(refreshToken));
+        refreshTokenRow.setCreatedAt(Instant.now());
+        refreshTokenRow.setExpiresAt(refreshExpiresAt);
+        refreshTokenRepository.save(refreshTokenRow);
 
         return new LoginResponseDto(
             accessToken, accessExpiresAt,

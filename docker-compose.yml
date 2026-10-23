@@ -16,6 +16,19 @@ services:
     networks:
       - sg-services-network
 
+  # Unit tests only (no DB): mirrors the `tests` profile used by the .NET
+  # compose files, so verification does not depend on a host JDK/Maven.
+  ms-iam.tests:
+    container_name: ms-iam-tests
+    image: maven:3.9-eclipse-temurin-21
+    working_dir: /src
+    volumes:
+      - ./:/src
+    command: mvn test --no-transfer-progress
+    profiles: [ "tests" ]
+    networks:
+      - sg-services-network
+
 networks:
   sg-services-network:
     external: true

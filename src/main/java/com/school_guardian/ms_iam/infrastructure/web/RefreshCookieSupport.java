@@ -15,14 +15,23 @@ import java.time.Instant;
  * controllers free of extra constructor dependencies while the behaviour stays byte-for-byte
  * identical to the previous inline code.
  *
- * <p>Contract (unchanged): {@code HttpOnly}, {@code Secure}, {@code SameSite=Strict} on the
- * set-cookie, path {@code /api/v1/auth/refresh}, {@code Max-Age} derived from the expiry the
- * use case reported so the cookie never outlives the refresh token it carries.
+ * <p>Contract: {@code HttpOnly}, {@code Secure}, {@code SameSite=Strict} on the
+ * set-cookie, path {@code /api/v1/auth} so both {@code /refresh} and {@code /logout}
+ * receive it (logout revokes the refresh-token family), {@code Max-Age} derived from
+ * the expiry the use case reported so the cookie never outlives the refresh token it
+ * carries.
  */
 public final class RefreshCookieSupport {
 
     static final String COOKIE_NAME = "refresh_token";
-    static final String COOKIE_PATH = "/api/v1/auth/refresh";
+    static final String COOKIE_PATH = "/api/v1/auth";
+
+    /**
+     * Path used before logout needed the cookie. Expiring it on every write avoids
+     * a browser keeping both paths and sending the stale one first (longest path
+     * wins in the Cookie header), which would look like refresh-token reuse.
+     */
+    private static final String LEGACY_COOKIE_PATH = "/api/v1/auth/refresh";
 
     private RefreshCookieSupport() {
     }
@@ -33,6 +42,8 @@ public final class RefreshCookieSupport {
     public static void attachRefreshCookie(HttpServletResponse response,
                                            String refreshToken,
                                            Instant expiresAt) {
+        expireLegacyCookie(response);
+
         Cookie cookie = new Cookie(COOKIE_NAME, refreshToken);
         cookie.setHttpOnly(true);
         cookie.setSecure(true);
@@ -48,12 +59,23 @@ public final class RefreshCookieSupport {
      * original logout behaviour.
      */
     public static void clearRefreshCookie(HttpServletResponse response) {
+        expireLegacyCookie(response);
+
         Cookie clearCookie = new Cookie(COOKIE_NAME, "");
         clearCookie.setHttpOnly(true);
         clearCookie.setSecure(true);
         clearCookie.setPath(COOKIE_PATH);
         clearCookie.setMaxAge(0);
         response.addCookie(clearCookie);
+    }
+
+    private static void expireLegacyCookie(HttpServletResponse response) {
+        Cookie legacy = new Cookie(COOKIE_NAME, "");
+        legacy.setHttpOnly(true);
+        legacy.setSecure(true);
+        legacy.setPath(LEGACY_COOKIE_PATH);
+        legacy.setMaxAge(0);
+        response.addCookie(legacy);
     }
 
     /**
