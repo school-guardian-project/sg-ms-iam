@@ -80,6 +80,14 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- H2 solo para tests: src/main/resources/application.properties esta en .gitignore,
+		     por lo que en CI no existe y el contexto de MsIamApplicationTests necesita un
+		     datasource efimero. -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.kafka</groupId>
 			<artifactId>spring-kafka</artifactId>

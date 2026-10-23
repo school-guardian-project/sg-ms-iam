@@ -2,31 +2,29 @@ package com.school_guardian.ms_iam.application.usecase;
 
 import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
+import com.school_guardian.ms_iam.application.mapper.ProfileAuthMapper;
 import com.school_guardian.ms_iam.domain.model.Profile;
-import com.school_guardian.ms_iam.domain.model.Role;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.shared.Status;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
-import javax.servlet.http.HttpServletRequest;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class LoginService implements LoginUseCase {
-
-    private static final long ACCESS_TOKEN_EXPIRATION_MINUTES = 60L;
-    private static final long REFRESH_TOKEN_EXPIRATION_DAYS = 7L;
 
     private final AuthenticationRepository authenticationRepository;
     private final PasswordEncoder passwordEncoder;
@@ -42,7 +40,7 @@ public class LoginService implements LoginUseCase {
         }
         AuthenticationData authData = found.get();
 
-        Profile profile = toProfile(authData);
+        Profile profile = ProfileAuthMapper.toProfile(authData);
 
         if (!passwordEncoder.matches(login.password(), profile.getPasswordHash())) {
             log.info("login fallido email={} motivo=contrasena-invalida", login.email());
@@ -68,16 +66,6 @@ public class LoginService implements LoginUseCase {
             log.debug("Could not obtain client IP: {}", e.getMessage());
         }
 
-        // Create SessionProfile record
-        sessionProfileRepository.save(new SessionProfileEntity(
-            1,  // ID will be auto-incremented; using 1 as placeholder
-            profile.getId(),
-            Instant.now(),
-            Instant.now().plusSeconds(REFRESH_TOKEN_EXPIRATION_DAYS * 24 * 60 * 60),
-            ipAddress,
-            "Active"
-        ));
-
         String accessToken = tokenProvider.generatedAccessToken(
             profile.getId(), profile.getPersonId(), authData.email,
             profile.getRole().getId(), authData.roleName, authData.identificationNumber,
@@ -91,24 +79,28 @@ public class LoginService implements LoginUseCase {
             authData.campusId, authData.schoolId
         );
 
+        // The expiries reported to the caller must match the ones embedded in the JWTs,
+        // so both are taken from the same source (TokenProvider <- app.jwt.*).
+        Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
+        Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
+
+        // SessionProfile is history: a row is appended per login and never reuses Id.
+        // Id is IDENTITY in the database (Iam.SessionProfile.Id INT IDENTITY), so it is
+        // left unset here and filled by the insert.
+        SessionProfileEntity session = new SessionProfileEntity();
+        session.setProfileId(profile.getId());
+        session.setDateStart(Instant.now());
+        session.setDateEnd(refreshExpiresAt);
+        session.setIpAddress(ipAddress);
+        session.setStatusSession("Active");
+        sessionProfileRepository.save(session);
+
         return new LoginResponseDto(
-            accessToken, ACCESS_TOKEN_EXPIRATION_MINUTES,
-            refreshToken, REFRESH_TOKEN_EXPIRATION_DAYS,
+            accessToken, accessExpiresAt,
+            refreshToken, refreshExpiresAt,
             profile.getId(), profile.getPersonId(), authData.email,
             profile.getRole().getId(), authData.campusId, authData.schoolId
         );
-    }
-
-    private Profile toProfile(AuthenticationData data) {
-        Profile profile = new Profile();
-        profile.setId(data.profileId);
-        profile.setPersonId(data.personId);
-        profile.setPasswordHash(data.passwordHash);
-        Role role = new Role();
-        role.setId(data.roleId);
-        profile.setRole(role);
-        profile.setStatus(Status.valueOf(data.status));
-        return profile;
     }
 
     public static class InvalidCredentialsException extends RuntimeException {

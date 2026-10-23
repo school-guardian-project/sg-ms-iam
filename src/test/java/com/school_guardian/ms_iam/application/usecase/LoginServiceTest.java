@@ -5,6 +5,7 @@ import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
+import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -32,7 +33,9 @@ class LoginServiceTest {
     private final AuthenticationRepository authenticationRepository = mock(AuthenticationRepository.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
     private final TokenProvider tokenProvider = mock(TokenProvider.class);
-    private final LoginService service = new LoginService(authenticationRepository, passwordEncoder, tokenProvider);
+    private final SessionProfileJpaRepository sessionProfileRepository = mock(SessionProfileJpaRepository.class);
+    private final LoginService service =
+        new LoginService(authenticationRepository, passwordEncoder, tokenProvider, sessionProfileRepository);
 
     private final UUID profileId = UUID.randomUUID();
     private final UUID personId = UUID.randomUUID();

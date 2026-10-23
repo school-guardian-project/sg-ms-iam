@@ -15,6 +15,6 @@ jobs:
     uses: school-guardian-project/.github/.github/workflows/deploy-java.yml@main
     with:
       dockerfile_path: 'Dockerfile'
-      app_name: 'iam-app'
+      app_name: 'ms-iam'
       host_port: 8080
     secrets: inherit
