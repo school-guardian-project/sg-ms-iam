@@ -13,4 +13,9 @@ public interface AuthenticationRepository {
     Optional<AuthenticationData> findByProfileId(UUID profileId);
     Optional<ProfileView> findProfileViewById(UUID profileId);
     List<String> findPermissionNamesByRoleId(Byte roleId);
+
+    // Refresh Token Management
+    Optional<RefreshTokenEntity> findByTokenHash(String tokenHash);
+    void saveRefreshToken(RefreshTokenEntity newToken, RefreshTokenEntity oldToken);
+    void revokeAllTokensInSession(Integer sessionProfileId);
 }
