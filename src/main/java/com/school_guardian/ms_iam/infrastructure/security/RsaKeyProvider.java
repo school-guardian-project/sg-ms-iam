@@ -27,14 +27,14 @@ public class RsaKeyProvider {
     private final String keyId;
 
     public RsaKeyProvider(
-        @Value("${app.jwt.private-key:}") String privateKeyPem,
-        @Value("${app.jwt.public-key:}") String publicKeyPem,
+        @Value("${app.jwt.private-key:}") String privateKeyB64,
+        @Value("${app.jwt.public-key:}") String publicKeyB64,
         @Value("${app.jwt.key-id:sg-iam}") String keyId
     ) {
         this.keyId = keyId;
-        if (hasText(privateKeyPem) && hasText(publicKeyPem)) {
-            this.privateKey = parsePrivateKey(normalizePem(privateKeyPem));
-            this.publicKey = parsePublicKey(normalizePem(publicKeyPem));
+        if (hasText(privateKeyB64) && hasText(publicKeyB64)) {
+            this.privateKey = parsePrivateKey(privateKeyB64.trim());
+            this.publicKey = parsePublicKey(publicKeyB64.trim());
             log.info("JWT RS256 key pair loaded from configuration (kid={})", keyId);
         } else {
             throw new IllegalStateException(
@@ -76,27 +76,34 @@ public class RsaKeyProvider {
         return value != null && !value.isBlank();
     }
 
-    private static String normalizePem(String pem) {
-        // No-op: config now provides raw base64 (no headers, no newlines)
-        return pem.trim();
-    }
-
     private static PrivateKey parsePrivateKey(String base64) {
         try {
-            byte[] der = Base64.getDecoder().decode(base64);
+            String cleaned = stripPemHeaders(base64);
+            byte[] der = Base64.getDecoder().decode(cleaned);
             return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(der));
         } catch (Exception e) {
-            throw new IllegalStateException("Unable to parse app.jwt.private-key as raw base64 PKCS#8", e);
+            throw new IllegalStateException("Unable to parse app.jwt.private-key as base64 PKCS#8 (raw or PEM). Length=" + base64.length(), e);
         }
     }
 
     private static PublicKey parsePublicKey(String base64) {
         try {
-            byte[] der = Base64.getDecoder().decode(base64);
+            String cleaned = stripPemHeaders(base64);
+            byte[] der = Base64.getDecoder().decode(cleaned);
             return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(der));
         } catch (Exception e) {
-            throw new IllegalStateException("Unable to parse app.jwt.public-key as raw base64 X.509", e);
+            throw new IllegalStateException("Unable to parse app.jwt.public-key as base64 X.509 (raw or PEM). Length=" + base64.length(), e);
         }
+    }
+
+    /**
+     * Strips PEM headers/footers (e.g., "-----BEGIN PRIVATE KEY-----") and whitespace
+     * from a key string, returning only the base64 payload.
+     */
+    private static String stripPemHeaders(String key) {
+        return key.replaceAll("-----BEGIN [A-Z ]+-----", "")
+                  .replaceAll("-----END [A-Z ]+-----", "")
+                  .replaceAll("\\s", "");
     }
 
     private static KeyPair generateRsaKeyPair() {
