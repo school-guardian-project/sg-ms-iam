@@ -27,9 +27,20 @@ public class RefreshTokenService implements RefreshTokenUseCase {
     @Override
     public RefreshTokenUseCase.RefreshResponse execute(RefreshTokenUseCase.Refresh refresh) {
         var refreshClaims = tokenProvider.parseRefreshToken(refresh.refreshToken());
+        String tokenHash = RefreshTokenHasher.sha256(refresh.refreshToken());
 
         if (refreshClaims.expiresAt().isBefore(Instant.now())) {
             throw new InvalidRefreshTokenException("Refresh token expired");
+        }
+
+        // 1. Find and lock the token to prevent concurrent reuse
+        var tokenEntity = authenticationRepository.findByTokenHash(tokenHash)
+            .orElseThrow(() -> new InvalidRefreshTokenException("Refresh token not found"));
+
+        // 2. Check if token is already revoked
+        if (tokenEntity.getRevokedAt() != null) {
+            handleReuseDetection(tokenEntity);
+            throw new InvalidRefreshTokenException("Refresh token has been revoked");
         }
 
         var authData = authenticationRepository.findByProfileId(refreshClaims.profileId())
@@ -55,12 +66,21 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             authData.campusId, authData.schoolId
         );
 
-        // Same source as the one embedded in the tokens (TokenProvider <- app.jwt.*).
         Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
         Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
 
-        // SessionProfile holds one row per login, so the session to extend is the newest
-        // one for this profile (findByProfileId would throw once a second row exists).
+        // 3. Rotate token: revoke old, save new
+        tokenEntity.setRevokedAt(Instant.now());
+        tokenEntity.setReplacedByTokenId(newRefreshTokenEntityId); // To be handled by repository save
+
+        RefreshTokenEntity newToken = new RefreshTokenEntity();
+        newToken.setSessionProfileId(tokenEntity.getSessionProfileId());
+        newToken.setTokenHash(RefreshTokenHasher.sha256(newRefreshToken));
+        newToken.setCreatedAt(Instant.now());
+        newToken.setExpiresAt(refreshExpiresAt);
+
+        authenticationRepository.saveRefreshToken(newToken, tokenEntity);
+
         try {
             var session = sessionProfileRepository.findFirstByProfileIdOrderByIdDesc(authData.profileId);
             if (session != null) {
@@ -74,6 +94,12 @@ public class RefreshTokenService implements RefreshTokenUseCase {
         }
 
         return new RefreshTokenUseCase.RefreshResponse(newAccessToken, accessExpiresAt, newRefreshToken, refreshExpiresAt);
+    }
+
+    private void handleReuseDetection(RefreshTokenEntity token) {
+        log.warn("Refresh token reuse detected for token {}. Revoking all tokens in session {}.",
+            token.getId(), token.getSessionProfileId());
+        authenticationRepository.revokeAllTokensInSession(token.getSessionProfileId());
     }
 
     public static class InvalidRefreshTokenException extends RuntimeException {

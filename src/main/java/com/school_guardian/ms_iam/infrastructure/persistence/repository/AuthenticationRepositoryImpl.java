@@ -107,8 +107,22 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
         return data;
     }
 
-    private UUID toUuid(Object value) {
-        if (value instanceof UUID uuid) return uuid;
-        return UUID.fromString(value.toString());
+    @Override
+    public Optional<RefreshTokenEntity> findByTokenHash(String tokenHash) {
+        return refreshTokenJpaRepository.findByTokenHashForUpdate(tokenHash);
+    }
+
+    @Override
+    public void saveRefreshToken(RefreshTokenEntity newToken, RefreshTokenEntity oldToken) {
+        refreshTokenJpaRepository.save(newToken);
+        oldToken.setReplacedByTokenId(newToken.getId());
+        refreshTokenJpaRepository.save(oldToken);
+    }
+
+    @Override
+    public void revokeAllTokensInSession(Integer sessionProfileId) {
+        List<RefreshTokenEntity> tokens = refreshTokenJpaRepository.findBySessionProfileIdAndRevokedAtIsNull(sessionProfileId);
+        tokens.forEach(t -> t.setRevokedAt(Instant.now()));
+        refreshTokenJpaRepository.saveAll(tokens);
     }
 }
