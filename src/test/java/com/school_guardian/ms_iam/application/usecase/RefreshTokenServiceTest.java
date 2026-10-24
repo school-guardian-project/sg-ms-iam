@@ -4,7 +4,9 @@ import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
+import com.school_guardian.ms_iam.infrastructure.security.RefreshTokenHasher;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -65,6 +67,17 @@ class RefreshTokenServiceTest {
             .thenReturn(claimsExpiringAt(Instant.now().plusSeconds(3600)));
         when(tokenProvider.accessTokenValidity()).thenReturn(Duration.ofMinutes(60));
         when(tokenProvider.refreshTokenValidity()).thenReturn(Duration.ofDays(7));
+        
+        // Mock token hash lookup
+        RefreshTokenEntity tokenEntity = new RefreshTokenEntity();
+        tokenEntity.setId(1L);
+        tokenEntity.setSessionProfileId(1);
+        tokenEntity.setTokenHash(RefreshTokenHasher.sha256("valid-refresh"));
+        tokenEntity.setCreatedAt(Instant.now().minusSeconds(60));
+        tokenEntity.setExpiresAt(Instant.now().plusSeconds(3600));
+        tokenEntity.setRevokedAt(null);
+        when(authenticationRepository.findByTokenHash(tokenEntity.getTokenHash()))
+            .thenReturn(Optional.of(tokenEntity));
     }
 
     @Test
