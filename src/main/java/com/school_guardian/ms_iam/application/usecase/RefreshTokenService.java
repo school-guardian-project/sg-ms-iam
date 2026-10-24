@@ -6,6 +6,8 @@ import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
+import com.school_guardian.ms_iam.infrastructure.security.RefreshTokenHasher;
 import com.school_guardian.ms_iam.shared.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,9 +29,18 @@ public class RefreshTokenService implements RefreshTokenUseCase {
     @Override
     public RefreshTokenUseCase.RefreshResponse execute(RefreshTokenUseCase.Refresh refresh) {
         var refreshClaims = tokenProvider.parseRefreshToken(refresh.refreshToken());
+        String tokenHash = RefreshTokenHasher.sha256(refresh.refreshToken());
 
         if (refreshClaims.expiresAt().isBefore(Instant.now())) {
             throw new InvalidRefreshTokenException("Refresh token expired");
+        }
+
+        var tokenEntity = authenticationRepository.findByTokenHash(tokenHash)
+            .orElseThrow(() -> new InvalidRefreshTokenException("Refresh token not found"));
+
+        if (tokenEntity.getRevokedAt() != null) {
+            handleReuseDetection(tokenEntity);
+            throw new InvalidRefreshTokenException("Refresh token has been revoked");
         }
 
         var authData = authenticationRepository.findByProfileId(refreshClaims.profileId())
@@ -55,12 +66,17 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             authData.campusId, authData.schoolId
         );
 
-        // Same source as the one embedded in the tokens (TokenProvider <- app.jwt.*).
         Instant accessExpiresAt = Instant.now().plus(tokenProvider.accessTokenValidity());
         Instant refreshExpiresAt = Instant.now().plus(tokenProvider.refreshTokenValidity());
 
-        // SessionProfile holds one row per login, so the session to extend is the newest
-        // one for this profile (findByProfileId would throw once a second row exists).
+        RefreshTokenEntity newToken = new RefreshTokenEntity();
+        newToken.setSessionProfileId(tokenEntity.getSessionProfileId());
+        newToken.setTokenHash(RefreshTokenHasher.sha256(newRefreshToken));
+        newToken.setCreatedAt(Instant.now());
+        newToken.setExpiresAt(refreshExpiresAt);
+
+        authenticationRepository.saveRefreshToken(newToken, tokenEntity);
+
         try {
             var session = sessionProfileRepository.findFirstByProfileIdOrderByIdDesc(authData.profileId);
             if (session != null) {
@@ -69,11 +85,15 @@ public class RefreshTokenService implements RefreshTokenUseCase {
                 sessionProfileRepository.save(session);
             }
         } catch (Exception e) {
-            log.warn("No se pudo actualizar el SessionProfile del perfil {}: {}",
-                authData.profileId, e.getMessage());
+            log.warn("No se pudo actualizar el SessionProfile del perfil {}: {}", authData.profileId, e.getMessage());
         }
 
         return new RefreshTokenUseCase.RefreshResponse(newAccessToken, accessExpiresAt, newRefreshToken, refreshExpiresAt);
+    }
+
+    private void handleReuseDetection(RefreshTokenEntity token) {
+        log.warn("Refresh token reuse detected for token {}. Revoking all tokens in session {}.", token.getId(), token.getSessionProfileId());
+        authenticationRepository.revokeAllTokensInSession(token.getSessionProfileId());
     }
 
     public static class InvalidRefreshTokenException extends RuntimeException {
