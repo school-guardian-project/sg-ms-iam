@@ -12,6 +12,7 @@ import com.school_guardian.ms_iam.shared.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Map;
@@ -26,6 +27,7 @@ public class RefreshTokenService implements RefreshTokenUseCase {
     private final SessionProfileJpaRepository sessionProfileRepository;
     private final TokenProvider tokenProvider;
 
+    @Transactional
     @Override
     public RefreshTokenUseCase.RefreshResponse execute(RefreshTokenUseCase.Refresh refresh) {
         var refreshClaims = tokenProvider.parseRefreshToken(refresh.refreshToken());
