@@ -47,13 +47,10 @@ public class RsaKeyProvider {
             this.publicKey = parsePublicKey(normalizePem(publicKeyPem));
             log.info("JWT RS256 key pair loaded from configuration (kid={})", keyId);
         } else {
-            KeyPair keyPair = generateRsaKeyPair();
-            this.privateKey = keyPair.getPrivate();
-            this.publicKey = keyPair.getPublic();
-            log.warn(
-                "No RSA key pair configured (app.jwt.private-key / app.jwt.public-key). "
-                    + "Generated an ephemeral in-memory key pair (kid={}). Tokens are invalidated on restart; "
-                    + "set JWT_PRIVATE_KEY / JWT_PUBLIC_KEY for stable keys.",
+            throw new IllegalStateException(
+                "Critical security failure: RSA key pair not configured. "
+                    + "Set app.jwt.private-key and app.jwt.public-key to ensure stable "
+                    + "tokens and prevent security regressions in production (kid={}).",
                 keyId
             );
         }
