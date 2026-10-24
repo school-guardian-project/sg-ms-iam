@@ -77,10 +77,8 @@ public class RsaKeyProvider {
     }
 
     private static String normalizePem(String pem) {
-        if (pem.contains("\n")) {
-            return pem.replace("\n", "\n");
-        }
-        return pem;
+        // Convert literal \n (backslash-n) to actual newlines, and normalize any existing newlines
+        return pem.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n");
     }
 
     private static PrivateKey parsePrivateKey(String pem) {
