@@ -18,16 +18,6 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Holds the RSA key pair used to sign (private) and verify (public) JWTs.
- *
- * <p>The key material is supplied through configuration as PEM text
- * (PKCS#8 for the private key, X.509/SPKI for the public key). When no keys are
- * configured an ephemeral 2048-bit key pair is generated at startup so the
- * service remains runnable in development; tokens signed with an ephemeral key
- * are invalidated on every restart and the public key is only reachable through
- * the JWKS endpoint.</p>
- */
 @Slf4j
 @Component
 public class RsaKeyProvider {
@@ -47,13 +37,10 @@ public class RsaKeyProvider {
             this.publicKey = parsePublicKey(normalizePem(publicKeyPem));
             log.info("JWT RS256 key pair loaded from configuration (kid={})", keyId);
         } else {
-            KeyPair keyPair = generateRsaKeyPair();
-            this.privateKey = keyPair.getPrivate();
-            this.publicKey = keyPair.getPublic();
-            log.warn(
-                "No RSA key pair configured (app.jwt.private-key / app.jwt.public-key). "
-                    + "Generated an ephemeral in-memory key pair (kid={}). Tokens are invalidated on restart; "
-                    + "set JWT_PRIVATE_KEY / JWT_PUBLIC_KEY for stable keys.",
+            throw new IllegalStateException(
+                "Critical security failure: RSA key pair not configured. "
+                    + "Set app.jwt.private-key and app.jwt.public-key to ensure stable "
+                    + "tokens and prevent security regressions in production (kid={}).",
                 keyId
             );
         }
@@ -71,9 +58,6 @@ public class RsaKeyProvider {
         return keyId;
     }
 
-    /**
-     * The public key as a JWK (RFC 7517) suitable for a JWKS document.
-     */
     public Map<String, Object> publicJwk() {
         RSAPublicKey rsa = (RSAPublicKey) publicKey;
         Map<String, Object> jwk = new LinkedHashMap<>();
@@ -90,13 +74,9 @@ public class RsaKeyProvider {
         return value != null && !value.isBlank();
     }
 
-    /**
-     * Turns an escaped single-line PEM (e.g. {@code -----BEGIN...\nMII...}) into a
-     * real multi-line PEM. Real multi-line values are left untouched.
-     */
     private static String normalizePem(String pem) {
-        if (pem.contains("\\n")) {
-            return pem.replace("\\n", "\n");
+        if (pem.contains("\n")) {
+            return pem.replace("\n", "\n");
         }
         return pem;
     }
@@ -123,7 +103,7 @@ public class RsaKeyProvider {
         String base64 = pem
             .replace("-----BEGIN " + type + "-----", "")
             .replace("-----END " + type + "-----", "")
-            .replaceAll("\\s", "");
+            .replaceAll("\s", "");
         return Base64.getDecoder().decode(base64);
     }
 
@@ -139,8 +119,6 @@ public class RsaKeyProvider {
 
     private static String base64Url(BigInteger value) {
         byte[] bytes = value.toByteArray();
-        // BigInteger#toByteArray uses two's-complement and may prepend a 0x00 sign
-        // byte; JWK requires the minimal unsigned big-endian representation.
         if (bytes.length > 1 && bytes[0] == 0) {
             byte[] trimmed = new byte[bytes.length - 1];
             System.arraycopy(bytes, 1, trimmed, 0, trimmed.length);
