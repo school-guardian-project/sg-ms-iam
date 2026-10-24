@@ -130,4 +130,9 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
         tokens.forEach(t -> t.setRevokedAt(Instant.now()));
         refreshTokenJpaRepository.saveAll(tokens);
     }
+
+    private UUID toUuid(Object value) {
+        if (value instanceof UUID uuid) return uuid;
+        return UUID.fromString(value.toString());
+    }
 }
