@@ -101,9 +101,11 @@ public class RsaKeyProvider {
      * from a key string, returning only the base64 payload.
      */
     private static String stripPemHeaders(String key) {
-        return key.replaceAll("-----BEGIN [A-Z ]+-----", "")
-                  .replaceAll("-----END [A-Z ]+-----", "")
-                  .replaceAll("\\s", "");
+        // Handle escaped newlines (\n) from env vars, then strip PEM headers/footers and whitespace
+        String unescaped = key.replace("\\n", "\n");
+        return unescaped.replaceAll("-----BEGIN [A-Z ]+-----", "")
+                        .replaceAll("-----END [A-Z ]+-----", "")
+                        .replaceAll("\\s", "");
     }
 
     private static KeyPair generateRsaKeyPair() {
