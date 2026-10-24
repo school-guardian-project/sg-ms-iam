@@ -77,34 +77,26 @@ public class RsaKeyProvider {
     }
 
     private static String normalizePem(String pem) {
-        // Convert literal \n (backslash-n) to actual newlines, and normalize any existing newlines
-        return pem.replace("\\n", "\n").replace("\r\n", "\n").replace("\r", "\n");
+        // No-op: config now provides raw base64 (no headers, no newlines)
+        return pem.trim();
     }
 
-    private static PrivateKey parsePrivateKey(String pem) {
+    private static PrivateKey parsePrivateKey(String base64) {
         try {
-            byte[] der = decodePem(pem, "PRIVATE KEY");
+            byte[] der = Base64.getDecoder().decode(base64);
             return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(der));
         } catch (Exception e) {
-            throw new IllegalStateException("Unable to parse app.jwt.private-key as a PKCS#8 RSA private key", e);
+            throw new IllegalStateException("Unable to parse app.jwt.private-key as raw base64 PKCS#8", e);
         }
     }
 
-    private static PublicKey parsePublicKey(String pem) {
+    private static PublicKey parsePublicKey(String base64) {
         try {
-            byte[] der = decodePem(pem, "PUBLIC KEY");
+            byte[] der = Base64.getDecoder().decode(base64);
             return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(der));
         } catch (Exception e) {
-            throw new IllegalStateException("Unable to parse app.jwt.public-key as an X.509 RSA public key", e);
+            throw new IllegalStateException("Unable to parse app.jwt.public-key as raw base64 X.509", e);
         }
-    }
-
-    private static byte[] decodePem(String pem, String type) {
-        String base64 = pem
-            .replace("-----BEGIN " + type + "-----", "")
-            .replace("-----END " + type + "-----", "")
-            .replaceAll("\s", "");
-        return Base64.getDecoder().decode(base64);
     }
 
     private static KeyPair generateRsaKeyPair() {
