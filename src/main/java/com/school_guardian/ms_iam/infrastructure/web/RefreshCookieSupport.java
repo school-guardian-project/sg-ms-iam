@@ -15,9 +15,10 @@ import java.time.Instant;
  * controllers free of extra constructor dependencies while the behaviour stays byte-for-byte
  * identical to the previous inline code.
  *
- * <p>Contract (unchanged): {@code HttpOnly}, {@code Secure}, {@code SameSite=Strict} on the
+ * <p>Contract: {@code HttpOnly}, {@code Secure}, {@code SameSite=None} on the
  * set-cookie, path {@code /api/v1/auth/refresh}, {@code Max-Age} derived from the expiry the
  * use case reported so the cookie never outlives the refresh token it carries.
+ * SameSite=None is required for cross-origin requests (e.g., Vercel frontend -> duckdns.org API).
  */
 public final class RefreshCookieSupport {
 
@@ -38,7 +39,7 @@ public final class RefreshCookieSupport {
         cookie.setSecure(true);
         cookie.setPath(COOKIE_PATH);
         cookie.setMaxAge(secondsUntil(expiresAt));
-        cookie.setAttribute("SameSite", "Strict");
+        cookie.setAttribute("SameSite", "None");
         response.addCookie(cookie);
     }
 
