@@ -2,6 +2,7 @@ package com.school_guardian.ms_iam.domain.port.in;
 
 import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.application.dto.ProfileView;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
 
 import java.util.List;
 import java.util.Optional;

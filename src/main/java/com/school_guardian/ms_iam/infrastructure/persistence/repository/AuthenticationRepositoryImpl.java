@@ -4,8 +4,10 @@ import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.application.dto.ProfileView;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.ProfileEntity;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,9 +16,12 @@ import java.util.UUID;
 public class AuthenticationRepositoryImpl implements AuthenticationRepository {
 
     private final ProfileJpaRepository profileJpaRepository;
+    private final RefreshTokenJpaRepository refreshTokenJpaRepository;
 
-    public AuthenticationRepositoryImpl(ProfileJpaRepository profileJpaRepository) {
+    public AuthenticationRepositoryImpl(ProfileJpaRepository profileJpaRepository,
+                                        RefreshTokenJpaRepository refreshTokenJpaRepository) {
         this.profileJpaRepository = profileJpaRepository;
+        this.refreshTokenJpaRepository = refreshTokenJpaRepository;
     }
 
     @Override
