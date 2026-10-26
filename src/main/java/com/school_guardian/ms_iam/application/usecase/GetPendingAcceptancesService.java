@@ -47,7 +47,7 @@ public class GetPendingAcceptancesService implements GetPendingAcceptancesUseCas
         }
 
         UUID profileId = claims.profileId();
-        Integer roleId = claims.roleId();
+        Integer roleId = claims.roleId() != null ? claims.roleId().intValue() : null;
 
         // Check own acceptance for current version
         var ownAcceptances = termsAcceptanceRepository.findByProfileId(profileId)
