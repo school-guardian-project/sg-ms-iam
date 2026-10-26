@@ -10,6 +10,7 @@ import com.school_guardian.ms_iam.domain.port.in.LogoutUseCase;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Map;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,12 @@ public class AuthController {
     private final RefreshTokenUseCase refreshTokenUseCase;
     private final LogoutUseCase logoutUseCase;
     private final GetProfileUseCase getProfileUseCase;
+
+    @GetMapping("/health")
+    @Operation(summary = "Health check", description = "Simple health check endpoint for mobile app server availability verification")
+    public ResponseEntity<Map<String, String>> health() {
+        return ResponseEntity.ok(Map.of("status", "UP", "service", "ms-iam"));
+    }
 
     @GetMapping("/profile")
     @Operation(summary = "Current user profile", description = "Returns the profile of the authenticated user, including role and tenant (campus/school)")

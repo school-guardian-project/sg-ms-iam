@@ -27,21 +27,23 @@ public class RsaKeyProvider {
     private final String keyId;
 
     public RsaKeyProvider(
-        @Value("${app.jwt.private-key:}") String privateKeyPem,
-        @Value("${app.jwt.public-key:}") String publicKeyPem,
+        @Value("${app.jwt.private-key:}") String privateKeyB64,
+        @Value("${app.jwt.public-key:}") String publicKeyB64,
         @Value("${app.jwt.key-id:sg-iam}") String keyId
     ) {
         this.keyId = keyId;
-        if (hasText(privateKeyPem) && hasText(publicKeyPem)) {
-            this.privateKey = parsePrivateKey(normalizePem(privateKeyPem));
-            this.publicKey = parsePublicKey(normalizePem(publicKeyPem));
+        if (hasText(privateKeyB64) && hasText(publicKeyB64)) {
+            this.privateKey = parsePrivateKey(privateKeyB64.trim());
+            this.publicKey = parsePublicKey(publicKeyB64.trim());
             log.info("JWT RS256 key pair loaded from configuration (kid={})", keyId);
         } else {
             throw new IllegalStateException(
-                "Critical security failure: RSA key pair not configured. "
-                    + "Set app.jwt.private-key and app.jwt.public-key to ensure stable "
-                    + "tokens and prevent security regressions in production (kid={}).",
-                keyId
+                String.format(
+                    "Critical security failure: RSA key pair not configured. "
+                        + "Set app.jwt.private-key and app.jwt.public-key to ensure stable "
+                        + "tokens and prevent security regressions in production (kid=%s).",
+                    keyId
+                )
             );
         }
     }
@@ -74,37 +76,36 @@ public class RsaKeyProvider {
         return value != null && !value.isBlank();
     }
 
-    private static String normalizePem(String pem) {
-        if (pem.contains("\n")) {
-            return pem.replace("\n", "\n");
-        }
-        return pem;
-    }
-
-    private static PrivateKey parsePrivateKey(String pem) {
+    private static PrivateKey parsePrivateKey(String base64) {
         try {
-            byte[] der = decodePem(pem, "PRIVATE KEY");
+            String cleaned = stripPemHeaders(base64);
+            byte[] der = Base64.getDecoder().decode(cleaned);
             return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(der));
         } catch (Exception e) {
-            throw new IllegalStateException("Unable to parse app.jwt.private-key as a PKCS#8 RSA private key", e);
+            throw new IllegalStateException("Unable to parse app.jwt.private-key as base64 PKCS#8 (raw or PEM). Length=" + base64.length(), e);
         }
     }
 
-    private static PublicKey parsePublicKey(String pem) {
+    private static PublicKey parsePublicKey(String base64) {
         try {
-            byte[] der = decodePem(pem, "PUBLIC KEY");
+            String cleaned = stripPemHeaders(base64);
+            byte[] der = Base64.getDecoder().decode(cleaned);
             return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(der));
         } catch (Exception e) {
-            throw new IllegalStateException("Unable to parse app.jwt.public-key as an X.509 RSA public key", e);
+            throw new IllegalStateException("Unable to parse app.jwt.public-key as base64 X.509 (raw or PEM). Length=" + base64.length(), e);
         }
     }
 
-    private static byte[] decodePem(String pem, String type) {
-        String base64 = pem
-            .replace("-----BEGIN " + type + "-----", "")
-            .replace("-----END " + type + "-----", "")
-            .replaceAll("\s", "");
-        return Base64.getDecoder().decode(base64);
+    /**
+     * Strips PEM headers/footers (e.g., "-----BEGIN PRIVATE KEY-----") and whitespace
+     * from a key string, returning only the base64 payload.
+     */
+    private static String stripPemHeaders(String key) {
+        // Handle escaped newlines (\n) from env vars, then strip PEM headers/footers and whitespace
+        String unescaped = key.replace("\\n", "\n");
+        return unescaped.replaceAll("-----BEGIN [A-Z ]+-----", "")
+                        .replaceAll("-----END [A-Z ]+-----", "")
+                        .replaceAll("\\s", "");
     }
 
     private static KeyPair generateRsaKeyPair() {
