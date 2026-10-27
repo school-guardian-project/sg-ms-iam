@@ -84,9 +84,9 @@ public class TermsController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         try {
-            var command = new RecordTermsAcceptanceUseCase.RecordTermsAcceptance(
-                accessToken, request.termsVersion(), request.studentProfileIds(),
-                httpRequest.getRemoteAddr(), "mobile");
+            // getRemoteAddr() is the real client: Tomcat's RemoteIpValve resolves it
+            // from X-Forwarded-For sent by the trusted internal proxies (Caddy/Kong).
+            var command = TermsAcceptanceMapper.toCommand(request, accessToken, httpRequest.getRemoteAddr());
             var ids = recordTermsAcceptanceUseCase.execute(command);
             var result = listTermsAcceptancesUseCase.execute(new ListTermsAcceptancesUseCase.ListTermsAcceptances(accessToken));
             var recorded = new HashSet<>(ids);

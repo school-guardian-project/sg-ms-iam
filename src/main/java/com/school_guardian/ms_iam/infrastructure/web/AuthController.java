@@ -60,9 +60,12 @@ public class AuthController {
     @Operation(summary = "User login", description = "Authenticates user by email and returns access token in body, refresh token in HttpOnly cookie")
     public ResponseEntity<LoginResponseDto> login(
         @Valid @RequestBody LoginRequestDto request,
+        jakarta.servlet.http.HttpServletRequest httpRequest,
         HttpServletResponse response
     ) {
-        var login = new LoginUseCase.Login(request.email(), request.password());
+        // getRemoteAddr() is the real client: Tomcat's RemoteIpValve resolves it
+        // from X-Forwarded-For sent by the trusted internal proxies (Caddy/Kong).
+        var login = new LoginUseCase.Login(request.email(), request.password(), httpRequest.getRemoteAddr());
         LoginResponseDto result = loginUseCase.execute(login);
 
         RefreshCookieSupport.attachRefreshCookie(response, result.refreshToken(), result.refreshTokenExpiresAt());
