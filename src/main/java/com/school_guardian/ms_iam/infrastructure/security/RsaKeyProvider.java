@@ -37,14 +37,15 @@ public class RsaKeyProvider {
             this.publicKey = parsePublicKey(publicKeyB64.trim());
             log.info("JWT RS256 key pair loaded from configuration (kid={})", keyId);
         } else {
-            throw new IllegalStateException(
-                String.format(
-                    "Critical security failure: RSA key pair not configured. "
-                        + "Set app.jwt.private-key and app.jwt.public-key to ensure stable "
-                        + "tokens and prevent security regressions in production (kid=%s).",
-                    keyId
-                )
+            log.warn(
+                "JWT RS256 key pair not configured via app.jwt.*. Generating ephemeral "
+                + "key pair (kid={}). Tokens will be invalidated on restart. "
+                + "Configure the keys for production stability.",
+                keyId
             );
+            KeyPair ephemeral = generateRsaKeyPair();
+            this.privateKey = ephemeral.getPrivate();
+            this.publicKey = ephemeral.getPublic();
         }
     }
 
