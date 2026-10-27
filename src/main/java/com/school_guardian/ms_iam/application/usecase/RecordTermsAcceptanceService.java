@@ -1,6 +1,7 @@
 package com.school_guardian.ms_iam.application.usecase;
 
 import com.school_guardian.ms_iam.domain.model.TermsAcceptance;
+import com.school_guardian.ms_iam.domain.model.TermsChannel;
 import com.school_guardian.ms_iam.domain.port.in.GetProfileUseCase;
 import com.school_guardian.ms_iam.domain.port.in.RecordTermsAcceptanceUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TermsAcceptanceRepository;
@@ -54,7 +55,7 @@ public class RecordTermsAcceptanceService implements RecordTermsAcceptanceUseCas
             acceptance.setTermsVersion(command.termsVersion());
             acceptance.setAcceptedAt(Instant.now());
             acceptance.setIpAddress(command.ipAddress());
-            acceptance.setChannel(command.channel() == null ? "mobile" : command.channel());
+            acceptance.setChannel((command.channel() == null ? TermsChannel.UNSPECIFIED : command.channel()).value());
 
             recorded.add(termsAcceptanceRepository.save(acceptance).getId());
         }

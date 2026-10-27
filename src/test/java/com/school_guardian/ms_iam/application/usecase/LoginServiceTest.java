@@ -162,4 +162,28 @@ class LoginServiceTest {
         verifyNoInteractions(tokenProvider);
         verify(authenticationRepository, never()).saveRefreshToken(any());
     }
+
+    @Test
+    void storesTheClientIpResolvedByTheWebLayerInTheSession() {
+        expectValidCredentialsForActiveAccount();
+
+        service.execute(new LoginUseCase.Login("ana@school.edu", "secret", "190.24.8.15"));
+
+        var captor = org.mockito.ArgumentCaptor.forClass(
+            com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity.class);
+        verify(sessionProfileRepository).save(captor.capture());
+        assertEquals("190.24.8.15", captor.getValue().getIpAddress());
+    }
+
+    @Test
+    void storesUnknownWhenTheClientIpIsMissing() {
+        expectValidCredentialsForActiveAccount();
+
+        service.execute(new LoginUseCase.Login("ana@school.edu", "secret"));
+
+        var captor = org.mockito.ArgumentCaptor.forClass(
+            com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity.class);
+        verify(sessionProfileRepository).save(captor.capture());
+        assertEquals(LoginUseCase.UNKNOWN_CLIENT_IP, captor.getValue().getIpAddress());
+    }
 }
