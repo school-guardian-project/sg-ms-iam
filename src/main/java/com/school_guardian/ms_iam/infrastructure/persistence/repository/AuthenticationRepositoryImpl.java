@@ -118,8 +118,14 @@ public class AuthenticationRepositoryImpl implements AuthenticationRepository {
     }
 
     @Override
+    public void saveRefreshToken(RefreshTokenEntity token) {
+        refreshTokenJpaRepository.save(token);
+    }
+
+    @Override
     public void saveRefreshToken(RefreshTokenEntity newToken, RefreshTokenEntity oldToken) {
         refreshTokenJpaRepository.save(newToken);
+        oldToken.setRevokedAt(Instant.now());
         oldToken.setReplacedByTokenId(newToken.getId());
         refreshTokenJpaRepository.save(oldToken);
     }
