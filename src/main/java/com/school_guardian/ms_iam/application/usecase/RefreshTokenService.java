@@ -27,7 +27,7 @@ public class RefreshTokenService implements RefreshTokenUseCase {
     private final SessionProfileJpaRepository sessionProfileRepository;
     private final TokenProvider tokenProvider;
 
-    @Transactional
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     @Override
     public RefreshTokenUseCase.RefreshResponse execute(RefreshTokenUseCase.Refresh refresh) {
         var refreshClaims = tokenProvider.parseRefreshToken(refresh.refreshToken());
@@ -54,6 +54,9 @@ public class RefreshTokenService implements RefreshTokenUseCase {
             throw new AccountInactiveException("Account is inactive");
         }
 
+        var session = sessionProfileRepository.findById(tokenEntity.getSessionProfileId())
+            .orElseThrow(() -> new InvalidRefreshTokenException("Session not found"));
+
         String newAccessJti = UUID.randomUUID().toString();
         String newAccessToken = tokenProvider.generatedAccessToken(
             profile.getId(), profile.getPersonId(), authData.email,
@@ -79,16 +82,9 @@ public class RefreshTokenService implements RefreshTokenUseCase {
 
         authenticationRepository.saveRefreshToken(newToken, tokenEntity);
 
-        try {
-            var session = sessionProfileRepository.findFirstByProfileIdOrderByIdDesc(authData.profileId);
-            if (session != null) {
-                session.setDateEnd(refreshExpiresAt);
-                session.setStatusSession("Active");
-                sessionProfileRepository.save(session);
-            }
-        } catch (Exception e) {
-            log.warn("No se pudo actualizar el SessionProfile del perfil {}: {}", authData.profileId, e.getMessage());
-        }
+        session.setDateEnd(refreshExpiresAt);
+        session.setStatusSession("Active");
+        sessionProfileRepository.save(session);
 
         return new RefreshTokenUseCase.RefreshResponse(newAccessToken, accessExpiresAt, newRefreshToken, refreshExpiresAt);
     }

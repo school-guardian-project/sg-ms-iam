@@ -8,12 +8,15 @@ import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
+import com.school_guardian.ms_iam.infrastructure.security.RefreshTokenHasher;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.shared.Status;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Map;
@@ -29,6 +32,7 @@ public class LoginService implements LoginUseCase {
     private final SessionProfileJpaRepository sessionProfileRepository;
 
     @Override
+    @Transactional
     public LoginResponseDto execute(Login login) {
         var found = authenticationRepository.findByEmail(login.email());
         if (found.isEmpty()) {
@@ -85,6 +89,13 @@ public class LoginService implements LoginUseCase {
         session.setIpAddress(ipAddress);
         session.setStatusSession("Active");
         sessionProfileRepository.save(session);
+
+        RefreshTokenEntity persistedRefreshToken = new RefreshTokenEntity();
+        persistedRefreshToken.setSessionProfileId(session.getId());
+        persistedRefreshToken.setTokenHash(RefreshTokenHasher.sha256(refreshToken));
+        persistedRefreshToken.setCreatedAt(Instant.now());
+        persistedRefreshToken.setExpiresAt(refreshExpiresAt);
+        authenticationRepository.saveRefreshToken(persistedRefreshToken);
 
         return new LoginResponseDto(
             accessToken, accessExpiresAt,
