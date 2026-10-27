@@ -10,13 +10,10 @@ import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.shared.Status;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.Instant;
 import java.util.Map;
@@ -54,17 +51,11 @@ public class LoginService implements LoginUseCase {
 
         log.info("login exitoso email={}", authData.email);
 
-        // Get client IP address
-        String ipAddress = "127.0.0.1";
-        try {
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
-            HttpServletRequest request = attributes.getRequest();
-            if (request != null) {
-                ipAddress = request.getRemoteAddr();
-            }
-        } catch (Exception e) {
-            log.debug("Could not obtain client IP: {}", e.getMessage());
-        }
+        // The web adapter resolves the client IP; the use case no longer reaches
+        // into the servlet request.
+        String ipAddress = login.clientIp() == null || login.clientIp().isBlank()
+            ? LoginUseCase.UNKNOWN_CLIENT_IP
+            : login.clientIp();
 
         String accessToken = tokenProvider.generatedAccessToken(
             profile.getId(), profile.getPersonId(), authData.email,
