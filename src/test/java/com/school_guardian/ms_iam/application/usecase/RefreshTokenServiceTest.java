@@ -5,6 +5,7 @@ import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.RefreshTokenUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
 import com.school_guardian.ms_iam.infrastructure.security.RefreshTokenHasher;
 import org.junit.jupiter.api.Test;
@@ -78,6 +79,10 @@ class RefreshTokenServiceTest {
         tokenEntity.setRevokedAt(null);
         when(authenticationRepository.findByTokenHash(tokenEntity.getTokenHash()))
             .thenReturn(Optional.of(tokenEntity));
+        var session = new SessionProfileEntity();
+        session.setId(1);
+        session.setProfileId(profileId);
+        when(sessionProfileRepository.findById(1)).thenReturn(Optional.of(session));
     }
 
     @Test
@@ -94,6 +99,8 @@ class RefreshTokenServiceTest {
 
         assertEquals("new-access-token", response.accessToken());
         assertEquals("new-refresh-token", response.refreshToken());
+        verify(sessionProfileRepository).findById(1);
+        verify(sessionProfileRepository, never()).findFirstByProfileIdOrderByIdDesc(any());
     }
 
     @Test
@@ -146,5 +153,31 @@ class RefreshTokenServiceTest {
 
         assertThrows(RefreshTokenService.AccountInactiveException.class,
             () -> service.execute(new RefreshTokenUseCase.Refresh("valid-refresh")));
+    }
+
+    @Test
+    void reuseRevokesTheWholeOriginalSessionWithoutIssuingTokens() {
+        expectAValidRefreshToken();
+        var token = authenticationRepository.findByTokenHash(RefreshTokenHasher.sha256("valid-refresh")).orElseThrow();
+        token.setRevokedAt(Instant.now());
+
+        assertThrows(RefreshTokenService.InvalidRefreshTokenException.class,
+            () -> service.execute(new RefreshTokenUseCase.Refresh("valid-refresh")));
+
+        verify(authenticationRepository).revokeAllTokensInSession(1);
+        verify(authenticationRepository, never()).saveRefreshToken(any(), any());
+        verify(tokenProvider, never()).generatedRefreshToken(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void missingSessionCannotLeaveAReplacementTokenBehind() {
+        expectAValidRefreshToken();
+        when(authenticationRepository.findByProfileId(profileId)).thenReturn(Optional.of(accountWithStatus("Active")));
+        when(sessionProfileRepository.findById(1)).thenReturn(Optional.empty());
+
+        assertThrows(RefreshTokenService.InvalidRefreshTokenException.class,
+            () -> service.execute(new RefreshTokenUseCase.Refresh("valid-refresh")));
+
+        verify(authenticationRepository, never()).saveRefreshToken(any(), any());
     }
 }

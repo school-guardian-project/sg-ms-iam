@@ -17,6 +17,7 @@ public interface AuthenticationRepository {
 
     // Refresh Token Management
     Optional<RefreshTokenEntity> findByTokenHash(String tokenHash);
+    void saveRefreshToken(RefreshTokenEntity token);
     void saveRefreshToken(RefreshTokenEntity newToken, RefreshTokenEntity oldToken);
     void revokeAllTokensInSession(Integer sessionProfileId);
 }

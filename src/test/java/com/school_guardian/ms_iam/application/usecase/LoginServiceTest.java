@@ -6,6 +6,10 @@ import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.RefreshTokenEntity;
+import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
+import com.school_guardian.ms_iam.infrastructure.security.RefreshTokenHasher;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -67,6 +71,11 @@ class LoginServiceTest {
             .thenReturn("access-token");
         when(tokenProvider.generatedRefreshToken(any(), any(), any(), any(), any(), any(), any(), any()))
             .thenReturn("refresh-token");
+        when(sessionProfileRepository.save(any())).thenAnswer(invocation -> {
+            SessionProfileEntity session = invocation.getArgument(0);
+            session.setId(42);
+            return session;
+        });
     }
 
     @Test
@@ -103,6 +112,21 @@ class LoginServiceTest {
     }
 
     @Test
+    void persistsOnlyTheRefreshHashInTheCreatedSessionBeforeReturning() {
+        expectValidCredentialsForActiveAccount();
+
+        LoginResponseDto response = service.execute(new LoginUseCase.Login("ana@school.edu", "secret"));
+
+        ArgumentCaptor<RefreshTokenEntity> token = ArgumentCaptor.forClass(RefreshTokenEntity.class);
+        verify(authenticationRepository).saveRefreshToken(token.capture());
+        assertEquals(42, token.getValue().getSessionProfileId());
+        assertEquals(RefreshTokenHasher.sha256(response.refreshToken()), token.getValue().getTokenHash());
+        assertNotEquals(response.refreshToken(), token.getValue().getTokenHash());
+        assertEquals(response.refreshTokenExpiresAt(), token.getValue().getExpiresAt());
+        assertNull(token.getValue().getRevokedAt());
+    }
+
+    @Test
     void rejectsAnUnknownEmail() {
         when(authenticationRepository.findByEmail("ghost@school.edu")).thenReturn(Optional.empty());
 
@@ -136,5 +160,6 @@ class LoginServiceTest {
             () -> service.execute(new LoginUseCase.Login("ghost@school.edu", "secret")));
 
         verifyNoInteractions(tokenProvider);
+        verify(authenticationRepository, never()).saveRefreshToken(any());
     }
 }

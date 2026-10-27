@@ -88,6 +88,7 @@ public class JwtTokenProvider implements TokenProvider {
 
         var builder = Jwts.builder()
             .header().keyId(keyId).and()
+            .id(UUID.randomUUID().toString())
             .issuer(issuer)
             .audience().add(audience).and()
             .subject(profileId.toString())
