@@ -37,6 +37,6 @@ public class SessionProfileEntity {
     @Column(name = "IPAddress", nullable = false, length = 50)
     private String ipAddress;
 
-    @Column(name = "StatusSession", nullable = false, length = 20)
+    @Column(name = "StatusSession", nullable = false, length = 50)
     private String statusSession;
 }
