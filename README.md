@@ -1,4 +1,4 @@
-# sg-ms-iam
+# Servicio IAM
 
 Identity and Access Management microservice for School Guardian. Handles login, session refresh persistence, and role-based access for parents, students, drivers, and administrators. Built with Java 21 and Maven.
 
