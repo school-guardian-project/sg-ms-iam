@@ -1,6 +1,6 @@
 # sg-ms-iam
 
-Identity and Access Management microservice for School Guardian, handling login, session refresh persistence, and role-based access for parents, students, drivers, and administrators.
+Identity and Access Management microservice for School Guardian. Handles login, session refresh persistence, and role-based access for parents, students, drivers, and administrators. Built with Java 21 and Maven.
 
 ## Getting Started
 
@@ -10,17 +10,25 @@ These instructions will give you a copy of the project up and running on your lo
 
 Requirements for the software and other tools to build, test and push:
 
-- .NET SDK
+- Java 21
+- Maven 3.9
 - Docker
 - Docker Compose
+- The `sg-services-network` Docker network (external, shared across services)
 
 ### Installing
 
 A step by step series of examples that tell you how to get a development environment running.
 
-Start the service with Docker Compose:
+Create the external network if it does not exist:
+
+    docker network create sg-services-network
+
+Start the service:
 
     docker compose up -d
+
+The service exposes HTTP on port 8080 and gRPC on port 5001. Environment variables are loaded from `.env`, including `APP_INTERNAL_API_KEY` which is required.
 
 ## Running the tests
 
@@ -40,12 +48,13 @@ Deployment is performed via GitHub Actions to an AWS EC2 instance.
 
 ## Built With
 
-- .NET
+- Java 21
+- Maven 3.9
 - Docker Compose — Local development stack
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+Please read [CONTRIBUTING.md](https://github.com/school-guardian-project/.github/blob/main/CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
