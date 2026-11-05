@@ -3,8 +3,10 @@ package com.school_guardian.ms_iam.application.usecase;
 import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
 import com.school_guardian.ms_iam.application.mapper.ProfileAuthMapper;
+import com.school_guardian.ms_iam.domain.exception.AccountLockedException;
 import com.school_guardian.ms_iam.domain.model.Profile;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
+import com.school_guardian.ms_iam.domain.port.in.LoginAttemptUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.entity.SessionProfileEntity;
@@ -30,10 +32,21 @@ public class LoginService implements LoginUseCase {
     private final PasswordEncoder passwordEncoder;
     private final TokenProvider tokenProvider;
     private final SessionProfileJpaRepository sessionProfileRepository;
+    private final LoginAttemptUseCase loginAttemptUseCase;
 
     @Override
     @Transactional
     public LoginResponseDto execute(Login login) {
+        if (loginAttemptUseCase.isLocked(login.email())) {
+            var lockedUntil = loginAttemptUseCase.getLockedUntil(login.email())
+                .map(i -> i.toString())
+                .orElse("desconocido");
+            throw new AccountLockedException(
+                "Account locked due to too many failed attempts. Try again after " + lockedUntil,
+                Instant.parse(lockedUntil)
+            );
+        }
+
         var found = authenticationRepository.findByEmail(login.email());
         if (found.isEmpty()) {
             log.info("login fallido email={} motivo=correo-no-existe", login.email());
@@ -45,6 +58,7 @@ public class LoginService implements LoginUseCase {
 
         if (!passwordEncoder.matches(login.password(), profile.getPasswordHash())) {
             log.info("login fallido email={} motivo=contrasena-invalida", login.email());
+            loginAttemptUseCase.recordFailedAttempt(login.email());
             throw new InvalidCredentialsException("Invalid credentials");
         }
 
@@ -96,6 +110,8 @@ public class LoginService implements LoginUseCase {
         persistedRefreshToken.setCreatedAt(Instant.now());
         persistedRefreshToken.setExpiresAt(refreshExpiresAt);
         authenticationRepository.saveRefreshToken(persistedRefreshToken);
+
+        loginAttemptUseCase.resetFailedAttempts(login.email());
 
         return new LoginResponseDto(
             accessToken, accessExpiresAt,

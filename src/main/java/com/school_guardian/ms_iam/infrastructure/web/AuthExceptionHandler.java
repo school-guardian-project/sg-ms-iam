@@ -3,6 +3,7 @@ package com.school_guardian.ms_iam.infrastructure.web;
 import com.school_guardian.ms_iam.application.dto.ErrorResponseDto;
 import com.school_guardian.ms_iam.application.usecase.LoginService;
 import com.school_guardian.ms_iam.application.usecase.RefreshTokenService;
+import com.school_guardian.ms_iam.domain.exception.AccountLockedException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
@@ -19,6 +20,22 @@ public class AuthExceptionHandler {
         LoginService.InvalidCredentialsException ex, HttpServletRequest request
     ) {
         return buildUnauthorized("INVALID_CREDENTIALS", ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ErrorResponseDto> accountLocked(
+        AccountLockedException ex, HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+            new ErrorResponseDto(
+                Instant.now(),
+                HttpStatus.FORBIDDEN.value(),
+                "ACCOUNT_LOCKED",
+                ex.getMessage(),
+                request.getRequestURI(),
+                null
+            )
+        );
     }
 
     @ExceptionHandler({
