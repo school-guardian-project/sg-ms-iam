@@ -4,20 +4,20 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "login_attempts")
+@Table(name = "LoginAttempts", schema = "Iam")
 public class LoginAttemptEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "email", unique = true, nullable = false, length = 255)
+    @Column(name = "Email", unique = true, nullable = false, length = 255)
     private String email;
 
-    @Column(name = "failed_attempts", nullable = false)
+    @Column(name = "FailedAttempts", nullable = false)
     private int failedAttempts;
 
-    @Column(name = "locked_until")
+    @Column(name = "LockedUntil")
     private Instant lockedUntil;
 
     public Long getId() {
