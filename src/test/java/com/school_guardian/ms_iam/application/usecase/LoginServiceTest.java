@@ -3,6 +3,7 @@ package com.school_guardian.ms_iam.application.usecase;
 import com.school_guardian.ms_iam.application.dto.AuthenticationData;
 import com.school_guardian.ms_iam.application.dto.LoginResponseDto;
 import com.school_guardian.ms_iam.domain.port.in.AuthenticationRepository;
+import com.school_guardian.ms_iam.domain.port.in.LoginAttemptUseCase;
 import com.school_guardian.ms_iam.domain.port.in.LoginUseCase;
 import com.school_guardian.ms_iam.domain.port.out.TokenProvider;
 import com.school_guardian.ms_iam.infrastructure.persistence.repository.SessionProfileJpaRepository;
@@ -38,8 +39,10 @@ class LoginServiceTest {
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
     private final TokenProvider tokenProvider = mock(TokenProvider.class);
     private final SessionProfileJpaRepository sessionProfileRepository = mock(SessionProfileJpaRepository.class);
+    private final LoginAttemptUseCase loginAttemptUseCase = mock(LoginAttemptUseCase.class);
     private final LoginService service =
-        new LoginService(authenticationRepository, passwordEncoder, tokenProvider, sessionProfileRepository);
+        new LoginService(authenticationRepository, passwordEncoder, tokenProvider, sessionProfileRepository,
+            loginAttemptUseCase);
 
     private final UUID profileId = UUID.randomUUID();
     private final UUID personId = UUID.randomUUID();
